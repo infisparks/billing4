@@ -492,7 +492,7 @@ function AddProduct() {
               value={customerPhone}
               onChange={handleCustomerPhoneChange}
               required
-              maxLength={10}
+              
             />
           </div>
 
