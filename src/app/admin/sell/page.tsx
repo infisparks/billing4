@@ -4,7 +4,15 @@
 import { useState, useEffect } from 'react';
 import InputField from 'components/fields/InputField';
 import { database, storage } from '../../../../firebase/firebaseConfig';
-import { ref as dbRef, push, onValue } from 'firebase/database';
+import {
+  ref as dbRef,
+  push,
+  onValue,
+  runTransaction,
+  query,
+  orderByChild,
+  equalTo,
+} from 'firebase/database';
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 import {
@@ -17,7 +25,7 @@ import {
 } from 'react-icons/fa';
 import { v4 as uuidv4 } from 'uuid';
 
-// --- Imports from your reference logic ---
+// --- Imports for PDF and Notifications ---
 import jsPDF from 'jspdf';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -80,8 +88,7 @@ function sendWhatsAppMessage(
   mediaUrl: string,
   filename: string
 ) {
-  // In your reference code, you used the API: https://adrika.aknexus.in/api/send
-  // with query parameters. We'll replicate that logic here:
+  // Modify the API URL and parameters as needed
   const fullNumber = `91${phoneNumber}`; // Modify if needed based on country code
   const apiUrl = `https://adrika.aknexus.in/api/send`;
 
@@ -119,10 +126,8 @@ async function createAndUploadPDF(saleData: any, allProducts: any[]) {
   const doc = new jsPDF('p', 'mm', 'a4');
   try {
     // Optional: Add letterhead or background image
-    // Ensure "/letterhead.png" exists in your public directory or adjust the path
     const imageBase64 = await getImageBase64('/letterhead.png');
     if (imageBase64) {
-      // Adjust positioning & size as needed
       doc.addImage(imageBase64, 'PNG', 0, 0, 210, 297);
     }
 
@@ -150,6 +155,7 @@ async function createAndUploadPDF(saleData: any, allProducts: any[]) {
     doc.setFont('Helvetica', 'bold');
     doc.setTextColor(12, 29, 73);
     doc.text('Product', 25, yPosition, { align: 'left' });
+    doc.text('Qty', 130, yPosition, { align: 'right' });
     doc.text('Price (₹)', 160, yPosition, { align: 'right' });
 
     yPosition += 5;
@@ -163,13 +169,14 @@ async function createAndUploadPDF(saleData: any, allProducts: any[]) {
     // List products
     saleData.products.forEach((prod: any, index: number) => {
       doc.text(`${index + 1}. ${prod.name}`, 25, yPosition, { align: 'left' });
-      doc.text(`${prod.price.toFixed(2)}`, 160, yPosition, { align: 'right' });
+      doc.text(`${prod.quantity}`, 130, yPosition, { align: 'right' });
+      doc.text(`${prod.lineTotal.toFixed(2)}`, 160, yPosition, { align: 'right' });
       yPosition += 10;
     });
 
     // Subtotal, discount, total
     const subtotal = saleData.products.reduce(
-      (acc: number, curr: any) => acc + curr.price,
+      (acc: number, curr: any) => acc + curr.lineTotal,
       0
     );
     const discountAmount = saleData.discount || 0;
@@ -225,16 +232,14 @@ async function createAndUploadPDF(saleData: any, allProducts: any[]) {
   }
 }
 
-// -----------------------------------------------------------------
-
 function AddProduct() {
   // Customer Details
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
 
-  // Products State
+  // Products State (now includes 'quantity' with default value 1)
   const [products, setProducts] = useState([
-    { id: uuidv4(), name: '', price: 0 },
+    { id: uuidv4(), name: '', price: 0, quantity: 1 },
   ]);
 
   // Discount
@@ -252,6 +257,7 @@ function AddProduct() {
   // Suggestions State
   const [suggestions, setSuggestions] = useState<{ [key: string]: any[] }>({});
 
+  // Fetch products for auto-suggestion
   useEffect(() => {
     const productsRef = dbRef(database, 'products');
     const unsubscribe = onValue(productsRef, (snapshot) => {
@@ -263,14 +269,35 @@ function AddProduct() {
       setAllProducts(loadedProducts);
     });
 
-    // Cleanup subscription on unmount
     return () => unsubscribe();
   }, []);
 
-  // Handle Customer Phone Input to ensure 10 digits
+  // Auto-Fill Customer Name if phone was used before
+  useEffect(() => {
+    if (customerPhone.length === 10) {
+      const salesQueryRef = query(
+        dbRef(database, 'sales'),
+        orderByChild('customerPhone'),
+        equalTo(customerPhone)
+      );
+
+      const unsubscribeSales = onValue(salesQueryRef, (snapshot) => {
+        if (snapshot.exists()) {
+          const data = snapshot.val();
+          const saleKeys = Object.keys(data);
+          const lastKey = saleKeys[saleKeys.length - 1];
+          const lastSale = data[lastKey];
+          setCustomerName(lastSale.customerName);
+        }
+      });
+
+      return () => unsubscribeSales();
+    }
+  }, [customerPhone]);
+
+  // Handle Customer Phone Input
   const handleCustomerPhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-    // Only allow up to 10 digits
     if (/^\d{0,10}$/.test(value)) {
       setCustomerPhone(value);
     }
@@ -311,8 +338,13 @@ function AddProduct() {
     const updatedProducts = [...products];
     updatedProducts[index].name = product.name;
     updatedProducts[index].price = product.price;
+    // If you want to set default line-quantity from DB, do it here if available
     setProducts(updatedProducts);
-    setSuggestions((prev) => ({ ...prev, [updatedProducts[index].id]: [] }));
+
+    setSuggestions((prev) => ({
+      ...prev,
+      [updatedProducts[index].id]: [],
+    }));
   };
 
   // Handle Price Change
@@ -328,14 +360,28 @@ function AddProduct() {
     }
   };
 
+  // Handle Quantity Change
+  const handleQuantityChange = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    index: number
+  ) => {
+    const value = e.target.value;
+    if (/^\d{0,3}$/.test(value)) {
+      const newQty = value === '' ? 1 : parseInt(value, 10);
+      const updatedProducts = [...products];
+      updatedProducts[index].quantity = newQty > 0 ? newQty : 1; // min 1
+      setProducts(updatedProducts);
+    }
+  };
+
   // Add More Product Rows
   const handleAddProduct = () => {
-    setProducts([...products, { id: uuidv4(), name: '', price: 0 }]);
+    setProducts([...products, { id: uuidv4(), name: '', price: 0, quantity: 1 }]);
   };
 
   // Remove Product Row
   const handleRemoveProduct = (id: string) => {
-    setProducts(products.filter((product) => product.id !== id));
+    setProducts(products.filter((p) => p.id !== id));
     setSuggestions((prev) => {
       const updated = { ...prev };
       delete updated[id];
@@ -365,12 +411,10 @@ function AddProduct() {
       toast.error('Please fill in all customer details.');
       return;
     }
-
     if (customerPhone.length !== 10) {
       toast.error('Please enter a valid 10-digit phone number.');
       return;
     }
-
     if (products.length === 0) {
       toast.error('Please add at least one product.');
       return;
@@ -386,10 +430,15 @@ function AddProduct() {
         toast.error(`Please enter a valid price for product ${i + 1}.`);
         return;
       }
+      if (product.quantity <= 0) {
+        toast.error(`Quantity for product ${i + 1} cannot be 0.`);
+        return;
+      }
     }
 
-    // Optional: Validate Discount
-    const subtotal = products.reduce((acc, curr) => acc + curr.price, 0);
+    // Calculate Subtotal (Price * Quantity per line item)
+    const subtotal = products.reduce((acc, curr) => acc + curr.price * curr.quantity, 0);
+
     if (discount < 0) {
       toast.error('Discount cannot be negative.');
       return;
@@ -399,15 +448,18 @@ function AddProduct() {
       return;
     }
 
-    // Calculate Total
+    // Calculate line-item total, then overall total
     const total = subtotal - discount;
 
+    // Build saleData
     const saleData = {
       customerName: customerName.trim(),
       customerPhone: customerPhone.trim(),
       products: products.map((p) => ({
         name: p.name,
         price: p.price,
+        quantity: p.quantity,
+        lineTotal: p.price * p.quantity,
       })),
       discount,
       total,
@@ -418,13 +470,60 @@ function AddProduct() {
     try {
       setIsSubmitting(true);
 
-      // 1) Push Sale to Firebase Realtime Database
+      // 1) Decrement product quantities in Firebase
+      for (const soldProduct of saleData.products) {
+        const matchedProduct = allProducts.find(
+          (p) => p.name.toLowerCase() === soldProduct.name.toLowerCase()
+        );
+        if (matchedProduct) {
+          const productQuantityRef = dbRef(
+            database,
+            `products/${matchedProduct.id}/quantity`
+          );
+
+          // Subtract the line-item quantity (not just 1)
+          await runTransaction(productQuantityRef, (currentQuantity) => {
+            if (currentQuantity === null) {
+              return 0;
+            }
+            return currentQuantity - soldProduct.quantity; // Decrement by line-item quantity
+          })
+            .then((result) => {
+              if (!result.committed) {
+                console.warn(
+                  `Transaction aborted for product ${matchedProduct.name}.`
+                );
+                toast.error(
+                  `Failed to update quantity for product ${matchedProduct.name}.`
+                );
+              }
+            })
+            .catch((error) => {
+              console.error(
+                `Transaction failed for product ${matchedProduct.name}:`,
+                error
+              );
+              toast.error(
+                `Error updating quantity for product ${matchedProduct.name}.`
+              );
+            });
+        } else {
+          console.warn(
+            `Product ${soldProduct.name} not found in allProducts.`
+          );
+          toast.error(
+            `Product ${soldProduct.name} not found. Quantity not updated.`
+          );
+        }
+      }
+
+      // 2) Push Sale to Firebase Realtime Database
       const salesRef = dbRef(database, 'sales');
       await push(salesRef, saleData);
 
       toast.success('Sale recorded successfully! Generating PDF...');
 
-      // 2) Generate PDF, upload to Firebase Storage, then send via WhatsApp
+      // 3) Generate PDF, upload to Firebase Storage, then send via WhatsApp
       const pdfResult = await createAndUploadPDF(saleData, allProducts);
       if (pdfResult && pdfResult.downloadURL) {
         // Send WhatsApp message with PDF link
@@ -437,12 +536,12 @@ function AddProduct() {
         toast.success('Invoice PDF sent via WhatsApp!');
       }
 
-      // 3) Reset Form
+      // 4) Reset Form
       setCustomerName('');
       setCustomerPhone('');
       setDiscount(0);
       setPaymentMethod('Cash');
-      setProducts([{ id: uuidv4(), name: '', price: 0 }]);
+      setProducts([{ id: uuidv4(), name: '', price: 0, quantity: 1 }]);
     } catch (error) {
       console.error('Error recording sale:', error);
       toast.error('Failed to record sale. Please try again.');
@@ -453,13 +552,13 @@ function AddProduct() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center px-4 sm:px-6 lg:px-8">
-      {/* Toast container for notifications */}
       <ToastContainer />
 
       <div className="max-w-2xl w-full bg-white dark:bg-gray-800 p-8 rounded-lg shadow-md">
         <h2 className="mb-6 text-3xl font-extrabold text-gray-900 dark:text-white text-center">
           Record New Sale
         </h2>
+
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Customer Name */}
           <div className="relative">
@@ -472,9 +571,7 @@ function AddProduct() {
               id="customerName"
               type="text"
               value={customerName}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                setCustomerName(e.target.value)
-              }
+              onChange={(e) => setCustomerName(e.target.value)}
               required
             />
           </div>
@@ -492,7 +589,6 @@ function AddProduct() {
               value={customerPhone}
               onChange={handleCustomerPhoneChange}
               required
-              
             />
           </div>
 
@@ -533,40 +629,56 @@ function AddProduct() {
             {products.map((product, index) => (
               <div key={product.id} className="relative border p-4 rounded-md">
                 {/* Product Name */}
-                <div className="relative">
-                  <FaBox className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                  <InputField
-                    variant="auth"
-                    extra="mb-3 pl-10"
-                    label={`Product ${index + 1} Name*`}
-                    placeholder="Start typing product name"
-                    id={`productName-${product.id}`}
-                    type="text"
-                    value={product.name}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                      handleProductNameChange(e, index)
-                    }
-                    required
-                  />
-                  {/* Suggestions Dropdown */}
-                  {suggestions[product.id] && suggestions[product.id].length > 0 && (
-                    <ul className="absolute z-10 bg-white border border-gray-300 w-full mt-1 max-h-40 overflow-y-auto rounded-md shadow-lg">
-                      {suggestions[product.id].map((suggestion) => (
-                        <li
-                          key={suggestion.id}
-                          className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
-                          onClick={() => handleProductSelect(suggestion, index)}
-                        >
-                          {suggestion.name}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
+                <div className="flex justify-between items-center">
+  {/* Product Name */}
+  <div className="relative flex-1 mr-4">
+    <FaBox className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+    <InputField
+      variant="auth"
+      extra="mb-3 pl-10"
+      label={`Product ${index + 1} Name*`}
+      placeholder="Start typing product name"
+      id={`productName-${product.id}`}
+      type="text"
+      value={product.name}
+      onChange={(e) => handleProductNameChange(e, index)}
+      required
+    />
+    {/* Suggestions Dropdown */}
+    {suggestions[product.id] && suggestions[product.id].length > 0 && (
+      <ul className="absolute z-10 bg-white border border-gray-300 w-full mt-1 max-h-40 overflow-y-auto rounded-md shadow-lg">
+        {suggestions[product.id].map((suggestion) => (
+          <li
+            key={suggestion.id}
+            className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+            onClick={() => handleProductSelect(suggestion, index)}
+          >
+            {suggestion.name}
+          </li>
+        ))}
+      </ul>
+    )}
+  </div>
 
-                {/* Product Price (Editable) */}
+  {/* Quantity Input */}
+  <div className="relative w-24">
+    <FaSortNumericDown className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+    <input
+      type="number"
+      value={product.quantity}
+      onChange={(e) => handleQuantityChange(e, index)}
+      className="w-full px-4 py-2 text-lg border border-gray-300 bg-[#2D396B] text-white rounded-lg pl-10"
+      placeholder="Qty"
+      min="1"
+      step="1"
+      required
+    />
+  </div>
+</div>
+
+                {/* Product Price */}
                 <div className="relative mt-2">
-                  <FaDollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                  <FaDollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 " />
                   <input
                     type="number"
                     value={product.price === 0 ? '' : product.price}
@@ -578,6 +690,9 @@ function AddProduct() {
                     step="0.01"
                   />
                 </div>
+
+                {/* Product Quantity (New) */}
+             
 
                 {/* Remove Product Button */}
                 {products.length > 1 && (
@@ -597,10 +712,10 @@ function AddProduct() {
             <button
               type="button"
               onClick={handleAddProduct}
-              className="flex items-center text-brand-500 hover:text-brand-600"
+              className="flex items-center text-white hover:text-brand-600"
             >
-              <FaPlus className="mr-2" /> Add More Products
-            </button>
+              <FaPlus className="mr-2 text-white" /> Add More Products
+            </button >
           </div>
 
           {/* Discount */}
@@ -663,7 +778,7 @@ function AddProduct() {
             Want to record another sale?
           </span>
           <a
-            href="/"
+            href="/admin/selllist"
             className="ml-2 text-sm font-medium text-brand-500 hover:text-brand-600 dark:text-white"
           >
             Go to Dashboard

@@ -1,5 +1,6 @@
-// pages/SellList.tsx
+// src/app/admin/selllist/page.tsx
 'use client';
+
 import { useEffect, useState } from 'react';
 import { database } from '../../../../firebase/firebaseConfig';
 import { ref, onValue } from 'firebase/database';
@@ -26,16 +27,25 @@ import {
   startOfYear,
   endOfYear,
 } from 'date-fns';
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+
+interface Product {
+  name: string;
+  price: number;
+  quantity: number;
+  lineTotal: number;
+}
 
 interface SoldProduct {
   id: string;
-  name: string;
-  description: string;
-  price: number;
-  paymentMethod: 'online' | 'cash';
-  phoneNumber: string;
-  productId: string;
-  soldAt: string;
+  customerName: string;
+  customerPhone: string;
+  discount: number;
+  paymentMethod: 'Online' | 'Cash';
+  products: Product[];
+  timestamp: string;
+  total: number;
 }
 
 type FilterType = 'all' | 'today' | 'yesterday' | 'customDate' | 'customMonth';
@@ -44,6 +54,11 @@ interface Summary {
   total: number;
   online: number;
   cash: number;
+}
+
+interface SaleDetails {
+  date: string;
+  total: number;
 }
 
 function SellList() {
@@ -68,6 +83,12 @@ function SellList() {
   const [monthSummary, setMonthSummary] = useState<Summary>({ total: 0, online: 0, cash: 0 });
   const [yearSummary, setYearSummary] = useState<Summary>({ total: 0, online: 0, cash: 0 });
 
+  // Modal states
+  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+  const [selectedPhoneNumber, setSelectedPhoneNumber] = useState<string>('');
+  const [customerSales, setCustomerSales] = useState<SaleDetails[]>([]);
+  const [customerTotal, setCustomerTotal] = useState<number>(0);
+
   useEffect(() => {
     const salesRef = ref(database, 'sales');
     const unsubscribe = onValue(
@@ -79,9 +100,29 @@ function SellList() {
             id: key,
             ...data[key],
           }));
-          setSales(salesList);
-          setFilteredSales(salesList);
-          calculateSummaries(salesList);
+
+          // **Filter out sales with invalid or missing 'timestamp'**
+          const validSalesList = salesList.filter((sale) => {
+            if (!sale.timestamp || typeof sale.timestamp !== 'string') {
+              console.warn(`Sale with ID ${sale.id} is missing a valid 'timestamp' field.`);
+              return false;
+            }
+            const parsedDate = Date.parse(sale.timestamp);
+            if (isNaN(parsedDate)) {
+              console.warn(`Sale with ID ${sale.id} has an invalid 'timestamp' date.`);
+              return false;
+            }
+            return true;
+          });
+
+          // **Sort the validSalesList in descending order based on timestamp**
+          validSalesList.sort(
+            (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+          );
+
+          setSales(validSalesList);
+          setFilteredSales(validSalesList);
+          calculateSummaries(validSalesList);
         } else {
           setSales([]);
           setFilteredSales([]);
@@ -112,36 +153,36 @@ function SellList() {
     const yearSum: Summary = { total: 0, online: 0, cash: 0 };
 
     salesList.forEach((sale) => {
-      const saleDate = parseISO(sale.soldAt);
+      const saleDate = parseISO(sale.timestamp);
 
       // Today
       if (isToday(saleDate)) {
-        todaySum.total += sale.price;
-        sale.paymentMethod === 'online' ? (todaySum.online += sale.price) : (todaySum.cash += sale.price);
+        todaySum.total += sale.total;
+        sale.paymentMethod === 'Online' ? (todaySum.online += sale.total) : (todaySum.cash += sale.total);
       }
 
       // Yesterday
       if (isYesterday(saleDate)) {
-        yesterdaySum.total += sale.price;
-        sale.paymentMethod === 'online'
-          ? (yesterdaySum.online += sale.price)
-          : (yesterdaySum.cash += sale.price);
+        yesterdaySum.total += sale.total;
+        sale.paymentMethod === 'Online'
+          ? (yesterdaySum.online += sale.total)
+          : (yesterdaySum.cash += sale.total);
       }
 
       // This Month
       const startMonth = startOfMonth(new Date());
       const endMonth = endOfMonth(new Date());
       if (saleDate >= startMonth && saleDate <= endMonth) {
-        monthSum.total += sale.price;
-        sale.paymentMethod === 'online' ? (monthSum.online += sale.price) : (monthSum.cash += sale.price);
+        monthSum.total += sale.total;
+        sale.paymentMethod === 'Online' ? (monthSum.online += sale.total) : (monthSum.cash += sale.total);
       }
 
       // This Year
       const startYear = startOfYear(new Date());
       const endYear = endOfYear(new Date());
       if (saleDate >= startYear && saleDate <= endYear) {
-        yearSum.total += sale.price;
-        sale.paymentMethod === 'online' ? (yearSum.online += sale.price) : (yearSum.cash += sale.price);
+        yearSum.total += sale.total;
+        sale.paymentMethod === 'Online' ? (yearSum.online += sale.total) : (yearSum.cash += sale.total);
       }
     });
 
@@ -166,23 +207,28 @@ function SellList() {
       const lowercasedTerm = searchTerm.toLowerCase();
       tempSales = tempSales.filter(
         (sale) =>
-          sale.name.toLowerCase().includes(lowercasedTerm) ||
-          sale.description.toLowerCase().includes(lowercasedTerm)
+          sale.customerName.toLowerCase().includes(lowercasedTerm) ||
+          sale.customerPhone.includes(lowercasedTerm) ||
+          sale.products.some(
+            (product) =>
+              product.name.toLowerCase().includes(lowercasedTerm) ||
+              product.price.toString().includes(lowercasedTerm)
+          )
       );
     }
 
     // Apply Date Filters
     if (filter === 'today') {
-      tempSales = tempSales.filter((sale) => isToday(parseISO(sale.soldAt)));
+      tempSales = tempSales.filter((sale) => isToday(parseISO(sale.timestamp)));
     } else if (filter === 'yesterday') {
-      tempSales = tempSales.filter((sale) => isYesterday(parseISO(sale.soldAt)));
+      tempSales = tempSales.filter((sale) => isYesterday(parseISO(sale.timestamp)));
     } else if (filter === 'customDate') {
       const { start, end } = customDateRange;
       if (start && end) {
         const startDate = new Date(start);
         const endDate = new Date(end);
         tempSales = tempSales.filter((sale) => {
-          const saleDate = new Date(sale.soldAt);
+          const saleDate = new Date(sale.timestamp);
           return saleDate >= startDate && saleDate <= endDate;
         });
       }
@@ -190,7 +236,7 @@ function SellList() {
       const { month, year } = customMonth;
       if (month && year) {
         tempSales = tempSales.filter((sale) => {
-          const saleDate = new Date(sale.soldAt);
+          const saleDate = new Date(sale.timestamp);
           return (
             saleDate.getMonth() + 1 === parseInt(month) &&
             saleDate.getFullYear() === parseInt(year)
@@ -202,7 +248,7 @@ function SellList() {
     setFilteredSales(tempSales);
   }, [searchTerm, filter, customDateRange, customMonth, sales]);
 
-  const totalPrice = filteredSales.reduce((total, sale) => total + sale.price, 0);
+  const totalPrice = filteredSales.reduce((total, sale) => total + sale.total, 0);
 
   const handleFilterChange = (selectedFilter: FilterType) => {
     setFilter(selectedFilter);
@@ -213,6 +259,40 @@ function SellList() {
     if (selectedFilter !== 'customMonth') {
       setCustomMonth({ month: '', year: '' });
     }
+  };
+
+  // Function to open the modal with the selected phone number
+  const handlePhoneClick = (phoneNumber: string) => {
+    setSelectedPhoneNumber(phoneNumber);
+    setIsModalOpen(true);
+    aggregateCustomerSales(phoneNumber);
+  };
+
+  // Function to close the modal
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setSelectedPhoneNumber('');
+    setCustomerSales([]);
+    setCustomerTotal(0);
+  };
+
+  // Aggregate all sales for the selected phone number
+  const aggregateCustomerSales = (phoneNumber: string) => {
+    const customerSalesList: SaleDetails[] = [];
+    let totalAmount = 0;
+
+    sales
+      .filter((sale) => sale.customerPhone === phoneNumber)
+      .forEach((sale) => {
+        customerSalesList.push({
+          date: format(new Date(sale.timestamp), 'PPP p'),
+          total: sale.total,
+        });
+        totalAmount += sale.total;
+      });
+
+    setCustomerSales(customerSalesList);
+    setCustomerTotal(totalAmount);
   };
 
   if (loading) {
@@ -257,6 +337,8 @@ function SellList() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 sm:p-6 lg:p-8">
+      <ToastContainer />
+
       <div className="max-w-7xl mx-auto">
         <h2 className="text-3xl font-extrabold text-gray-900 dark:text-white mb-6 text-center">
           Sold Products
@@ -400,14 +482,14 @@ function SellList() {
             </div>
 
             {/* Search Bar */}
-            <div className="relative w-full max-w-md">
+            <div className="relative w-max ml-3 max-w-md ">
               <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
               <input
                 type="text"
                 placeholder="Search sales..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                className="w-max pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
               />
             </div>
           </div>
@@ -508,19 +590,19 @@ function SellList() {
                   <th className="px-6 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-700 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                     <div className="flex items-center">
                       <FaBox className="mr-2" />
-                      Product Name
+                      Customer Name
                     </div>
                   </th>
                   <th className="px-6 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-700 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                     <div className="flex items-center">
                       <FaInfoCircle className="mr-2" />
-                      Description
+                      Customer Phone
                     </div>
                   </th>
                   <th className="px-6 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-700 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                     <div className="flex items-center">
                       <FaDollarSign className="mr-2" />
-                      Price (₹)
+                      Products
                     </div>
                   </th>
                   <th className="px-6 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-700 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
@@ -535,24 +617,42 @@ function SellList() {
                       Sold On
                     </div>
                   </th>
+                  <th className="px-6 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-700 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    <div className="flex items-center">
+                      <FaDollarSign className="mr-2" />
+                      Total (₹)
+                    </div>
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {filteredSales.map((sale) => (
                   <tr key={sale.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
-                      {sale.name}
+                      {sale.customerName}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
-                      {sale.description.length > 15
-                        ? `${sale.description.substring(0, 15)}...`
-                        : sale.description}
+                      {/* **Clickable Phone Number** */}
+                      <button
+                        onClick={() => handlePhoneClick(sale.customerPhone)}
+                        className="text-blue-600 dark:text-blue-400 underline hover:text-blue-800 dark:hover:text-blue-600 focus:outline-none"
+                      >
+                        {sale.customerPhone}
+                      </button>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
-                      ₹{sale.price.toFixed(2)}
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
+                      {sale.products.map((product, index) => (
+                        <div key={index} className="flex items-center mb-1">
+                          <FaBox className="text-brand-500 mr-2" />
+                          <span>
+                            {product.name} - {product.quantity} x ₹{product.price.toFixed(2)} = ₹
+                            {(product.price * product.quantity).toFixed(2)}
+                          </span>
+                        </div>
+                      ))}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      {sale.paymentMethod === 'online' ? (
+                      {sale.paymentMethod === 'Online' ? (
                         <span className="flex items-center text-green-600 dark:text-green-400">
                           <FaCreditCard className="mr-1" /> Online
                         </span>
@@ -563,7 +663,10 @@ function SellList() {
                       )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
-                      {format(new Date(sale.soldAt), 'PPP p')}
+                      {format(new Date(sale.timestamp), 'PPP p')}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
+                      ₹{sale.total.toFixed(2)}
                     </td>
                   </tr>
                 ))}
@@ -577,6 +680,70 @@ function SellList() {
           <div className="mt-4 flex justify-end">
             <div className="text-lg font-semibold text-gray-800 dark:text-gray-200">
               Total Sales: ₹{totalPrice.toFixed(2)}
+            </div>
+          </div>
+        )}
+
+        {/* **Modal Component** */}
+        {isModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg w-11/12 max-w-2xl p-6 relative">
+              {/* Close Button */}
+              <button
+                onClick={closeModal}
+                className="absolute top-3 right-3 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 focus:outline-none"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none"
+                  viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+                Purchases by {selectedPhoneNumber}
+              </h3>
+
+              {/* Total Purchase Amount */}
+              <div className="mb-4">
+                <p className="text-lg font-medium text-gray-700 dark:text-gray-300">
+                  Total Amount: ₹{customerTotal.toFixed(2)}
+                </p>
+              </div>
+
+              {/* Sales List */}
+              <div className="overflow-y-auto max-h-80">
+                {customerSales.length === 0 ? (
+                  <p className="text-gray-600 dark:text-gray-400">No purchases found for this number.</p>
+                ) : (
+                  <ul className="space-y-4">
+                    {customerSales.map((sale, index) => (
+                      <li key={index} className="border-b border-gray-200 dark:border-gray-700 pb-4">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                              Date: {sale.date}
+                            </p>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                              Total Amount: ₹{sale.total.toFixed(2)}
+                            </p>
+                          </div>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              {/* Close Button at Bottom */}
+              <div className="mt-6 flex justify-end">
+                <button
+                  onClick={closeModal}
+                  className="px-4 py-2 bg-brand-500 text-white rounded-md hover:bg-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         )}
