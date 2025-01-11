@@ -425,12 +425,12 @@ function SellList() {
 
         {/* Filter Section */}
         <div className="mb-6">
-          <div className="flex flex-col md:flex-row items-center justify-between space-y-4 md:space-y-0">
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between space-y-4 md:space-y-0">
             {/* Filter Buttons */}
-            <div className="flex space-x-2">
+            <div className="flex flex-wrap space-x-2">
               <button
                 onClick={() => handleFilterChange('all')}
-                className={`flex items-center px-4 py-2 border rounded-md text-sm font-medium ${
+                className={`flex items-center px-4 py-2 border rounded-md text-sm font-medium mb-2 md:mb-0 ${
                   filter === 'all'
                     ? 'bg-brand-500 text-white border-brand-500'
                     : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700'
@@ -441,7 +441,7 @@ function SellList() {
               </button>
               <button
                 onClick={() => handleFilterChange('today')}
-                className={`flex items-center px-4 py-2 border rounded-md text-sm font-medium ${
+                className={`flex items-center px-4 py-2 border rounded-md text-sm font-medium mb-2 md:mb-0 ${
                   filter === 'today'
                     ? 'bg-brand-500 text-white border-brand-500'
                     : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700'
@@ -451,7 +451,7 @@ function SellList() {
               </button>
               <button
                 onClick={() => handleFilterChange('yesterday')}
-                className={`flex items-center px-4 py-2 border rounded-md text-sm font-medium ${
+                className={`flex items-center px-4 py-2 border rounded-md text-sm font-medium mb-2 md:mb-0 ${
                   filter === 'yesterday'
                     ? 'bg-brand-500 text-white border-brand-500'
                     : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700'
@@ -461,7 +461,7 @@ function SellList() {
               </button>
               <button
                 onClick={() => handleFilterChange('customDate')}
-                className={`flex items-center px-4 py-2 border rounded-md text-sm font-medium ${
+                className={`flex items-center px-4 py-2 border rounded-md text-sm font-medium mb-2 md:mb-0 ${
                   filter === 'customDate'
                     ? 'bg-brand-500 text-white border-brand-500'
                     : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700'
@@ -482,22 +482,22 @@ function SellList() {
             </div>
 
             {/* Search Bar */}
-            <div className="relative w-max ml-3 max-w-md ">
+            <div className="relative w-full max-w-md">
               <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
               <input
                 type="text"
                 placeholder="Search sales..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-max pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
               />
             </div>
           </div>
 
           {/* Custom Date Range Picker */}
           {filter === 'customDate' && (
-            <div className="mt-4 flex flex-col md:flex-row items-center space-y-4 md:space-y-0 md:space-x-4">
-              <div className="flex flex-col">
+            <div className="mt-4 flex flex-col md:flex-row items-start md:items-center space-y-4 md:space-y-0 md:space-x-4">
+              <div className="flex flex-col w-full md:w-auto">
                 <label htmlFor="startDate" className="text-sm text-gray-700 dark:text-gray-300 mb-1">
                   Start Date
                 </label>
@@ -508,10 +508,10 @@ function SellList() {
                   onChange={(e) =>
                     setCustomDateRange((prev) => ({ ...prev, start: e.target.value }))
                   }
-                  className="px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
                 />
               </div>
-              <div className="flex flex-col">
+              <div className="flex flex-col w-full md:w-auto">
                 <label htmlFor="endDate" className="text-sm text-gray-700 dark:text-gray-300 mb-1">
                   End Date
                 </label>
@@ -522,7 +522,7 @@ function SellList() {
                   onChange={(e) =>
                     setCustomDateRange((prev) => ({ ...prev, end: e.target.value }))
                   }
-                  className="px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
                 />
               </div>
             </div>
@@ -530,8 +530,8 @@ function SellList() {
 
           {/* Custom Month Picker */}
           {filter === 'customMonth' && (
-            <div className="mt-4 flex flex-col md:flex-row items-center space-y-4 md:space-y-0 md:space-x-4">
-              <div className="flex flex-col">
+            <div className="mt-4 flex flex-col md:flex-row items-start md:items-center space-y-4 md:space-y-0 md:space-x-4">
+              <div className="flex flex-col w-full md:w-auto">
                 <label htmlFor="month" className="text-sm text-gray-700 dark:text-gray-300 mb-1">
                   Month
                 </label>
@@ -541,7 +541,7 @@ function SellList() {
                   onChange={(e) =>
                     setCustomMonth((prev) => ({ ...prev, month: e.target.value }))
                   }
-                  className="px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
                 >
                   <option value="">Select Month</option>
                   {Array.from({ length: 12 }, (_, i) => (
@@ -551,7 +551,7 @@ function SellList() {
                   ))}
                 </select>
               </div>
-              <div className="flex flex-col">
+              <div className="flex flex-col w-full md:w-auto">
                 <label htmlFor="year" className="text-sm text-gray-700 dark:text-gray-300 mb-1">
                   Year
                 </label>
@@ -563,7 +563,7 @@ function SellList() {
                   onChange={(e) =>
                     setCustomMonth((prev) => ({ ...prev, year: e.target.value }))
                   }
-                  className="px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
                 />
               </div>
             </div>
@@ -686,8 +686,8 @@ function SellList() {
 
         {/* **Modal Component** */}
         {isModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg w-11/12 max-w-2xl p-6 relative">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg w-full max-w-2xl p-6 relative">
               {/* Close Button */}
               <button
                 onClick={closeModal}
