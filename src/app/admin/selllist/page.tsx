@@ -471,7 +471,7 @@ function SellList() {
               </button>
               <button
                 onClick={() => handleFilterChange('customMonth')}
-                className={`flex items-center px-4 py-2 border rounded-md text-sm font-medium ${
+                className={`flex items-center px-4 py-2 border rounded-md text-sm font-medium items-center ${
                   filter === 'customMonth'
                     ? 'bg-brand-500 text-white border-brand-500'
                     : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700'
@@ -482,14 +482,14 @@ function SellList() {
             </div>
 
             {/* Search Bar */}
-            <div className="relative w-full max-w-md">
+            <div className="relative w-min max-w-md">
               <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
               <input
                 type="text"
                 placeholder="Search sales..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                className="w-min pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
               />
             </div>
           </div>
