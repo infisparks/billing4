@@ -629,7 +629,7 @@ function AddProduct() {
             {products.map((product, index) => (
               <div key={product.id} className="relative border p-4 rounded-md">
                 {/* Product Name */}
-                <div className="flex justify-between items-center">
+                <div className="">
   {/* Product Name */}
   <div className="relative flex-1 mr-4">
     <FaBox className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
@@ -645,8 +645,8 @@ function AddProduct() {
       required
     />
     {/* Suggestions Dropdown */}
-    {suggestions[product.id] && suggestions[product.id].length > 0 && (
-      <ul className="absolute z-10 bg-white border border-gray-300 w-full mt-1 max-h-40 overflow-y-auto rounded-md shadow-lg">
+    {suggestions[product.id] && suggestions[product.id].length > 0 && (      <ul className="absolut
+e z-10 bg-white border border-gray-300 w-full mt-1 max-h-40 overflow-y-auto rounded-md shadow-lg">
         {suggestions[product.id].map((suggestion) => (
           <li
             key={suggestion.id}
@@ -661,7 +661,7 @@ function AddProduct() {
   </div>
 
   {/* Quantity Input */}
-  <div className="relative w-24">
+  <div className="relative w-full">
     <FaSortNumericDown className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
     <input
       type="number"

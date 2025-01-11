@@ -23,6 +23,7 @@
     "date-fns": "^4.1.0",
     "firebase": "^11.1.0",
     "framer-motion": "^7.10.2",
+    "horizon-tailwind-react-nextjs": "file:",
     "jspdf": "^2.5.2",
     "next": "^14.0.2",
     "next-transpile-modules": "^9.0.0",
