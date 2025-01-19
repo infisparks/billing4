@@ -81,44 +81,42 @@ async function uploadPDFToFirebaseStorage(pdfBlob: Blob, fileName: string): Prom
   }
 }
 
-// 3) Send WhatsApp message with the PDF link
-function sendWhatsAppMessage(
+// 3) Send WhatsApp message with the PDF link using the provided API
+async function sendWhatsAppMessage(
   phoneNumber: string,
   message: string,
   mediaUrl: string,
   filename: string
 ) {
-  // Modify the API URL and parameters as needed
-  const fullNumber = `91${phoneNumber}`; // Modify if needed based on country code
-  const apiUrl = `https://adrika.aknexus.in/api/send`;
+  const token = "9958399157"; // Your provided token
+  const recipientNumber = `91${phoneNumber}`; // Assuming '91' is the country code for India
 
-  // Create a hidden form to submit GET request to your API
-  const form = document.createElement('form');
-  form.method = 'GET';
-  form.action = apiUrl;
-  form.target = 'hidden_iframe';
+  const apiUrl = 'https://wa.medblisss.com/send-image-url';
 
-  const params = {
-    number: fullNumber,
-    type: 'media',
-    message,
-    media_url: mediaUrl,
-    filename,
-    instance_id: '67278A2693C73', // Update if needed
-    access_token: '67277e6184833', // Update if needed
-  };
+  try {
+    const res = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        token: token,
+        number: recipientNumber,
+        imageUrl: mediaUrl,
+        caption: `Hello, here is your invoice: ${filename}`,
+      }),
+    });
 
-  Object.entries(params).forEach(([key, value]) => {
-    const input = document.createElement('input');
-    input.type = 'hidden';
-    input.name = key;
-    input.value = value as string;
-    form.appendChild(input);
-  });
+    if (!res.ok) {
+      const errorData = await res.json();
+      throw new Error(errorData.message || 'Failed to send WhatsApp message.');
+    }
 
-  document.body.appendChild(form);
-  form.submit();
-  document.body.removeChild(form);
+    toast.success('Invoice PDF sent via WhatsApp!');
+  } catch (error) {
+    console.error('Error sending WhatsApp message:', error);
+    toast.error('Failed to send WhatsApp message.');
+  }
 }
 
 // 4) Create PDF with jsPDF, then upload to Firebase Storage and return URL
@@ -527,13 +525,12 @@ function AddProduct() {
       const pdfResult = await createAndUploadPDF(saleData, allProducts);
       if (pdfResult && pdfResult.downloadURL) {
         // Send WhatsApp message with PDF link
-        sendWhatsAppMessage(
+        await sendWhatsAppMessage(
           customerPhone,
           `Hello ${customerName}, here is your invoice.`,
           pdfResult.downloadURL,
           pdfResult.fileName
         );
-        toast.success('Invoice PDF sent via WhatsApp!');
       }
 
       // 4) Reset Form
@@ -630,51 +627,51 @@ function AddProduct() {
               <div key={product.id} className="relative border p-4 rounded-md">
                 {/* Product Name */}
                 <div className="">
-  {/* Product Name */}
-  <div className="relative flex-1 mr-4">
-    <FaBox className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-    <InputField
-      variant="auth"
-      extra="mb-3 pl-10"
-      label={`Product ${index + 1} Name*`}
-      placeholder="Start typing product name"
-      id={`productName-${product.id}`}
-      type="text"
-      value={product.name}
-      onChange={(e) => handleProductNameChange(e, index)}
-      required
-    />
-    {/* Suggestions Dropdown */}
-    {suggestions[product.id] && suggestions[product.id].length > 0 && (      <ul className="absolut
-e z-10 bg-white border border-gray-300 w-full mt-1 max-h-40 overflow-y-auto rounded-md shadow-lg">
-        {suggestions[product.id].map((suggestion) => (
-          <li
-            key={suggestion.id}
-            className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
-            onClick={() => handleProductSelect(suggestion, index)}
-          >
-            {suggestion.name}
-          </li>
-        ))}
-      </ul>
-    )}
-  </div>
+                  {/* Product Name */}
+                  <div className="relative flex-1 mr-4">
+                    <FaBox className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                    <InputField
+                      variant="auth"
+                      extra="mb-3 pl-10"
+                      label={`Product ${index + 1} Name*`}
+                      placeholder="Start typing product name"
+                      id={`productName-${product.id}`}
+                      type="text"
+                      value={product.name}
+                      onChange={(e) => handleProductNameChange(e, index)}
+                      required
+                    />
+                    {/* Suggestions Dropdown */}
+                    {suggestions[product.id] && suggestions[product.id].length > 0 && (
+                      <ul className="absolute z-10 bg-white border border-gray-300 w-full mt-1 max-h-40 overflow-y-auto rounded-md shadow-lg">
+                        {suggestions[product.id].map((suggestion) => (
+                          <li
+                            key={suggestion.id}
+                            className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                            onClick={() => handleProductSelect(suggestion, index)}
+                          >
+                            {suggestion.name}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
 
-  {/* Quantity Input */}
-  <div className="relative w-full">
-    <FaSortNumericDown className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-    <input
-      type="number"
-      value={product.quantity}
-      onChange={(e) => handleQuantityChange(e, index)}
-      className="w-full px-4 py-2 text-lg border border-gray-300 bg-[#2D396B] text-white rounded-lg pl-10"
-      placeholder="Qty"
-      min="1"
-      step="1"
-      required
-    />
-  </div>
-</div>
+                  {/* Quantity Input */}
+                  <div className="relative w-full">
+                    <FaSortNumericDown className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                    <input
+                      type="number"
+                      value={product.quantity}
+                      onChange={(e) => handleQuantityChange(e, index)}
+                      className="w-full px-4 py-2 text-lg border border-gray-300 bg-[#2D396B] text-white rounded-lg pl-10"
+                      placeholder="Qty"
+                      min="1"
+                      step="1"
+                      required
+                    />
+                  </div>
+                </div>
 
                 {/* Product Price */}
                 <div className="relative mt-2">
@@ -690,9 +687,6 @@ e z-10 bg-white border border-gray-300 w-full mt-1 max-h-40 overflow-y-auto roun
                     step="0.01"
                   />
                 </div>
-
-                {/* Product Quantity (New) */}
-             
 
                 {/* Remove Product Button */}
                 {products.length > 1 && (
@@ -715,7 +709,7 @@ e z-10 bg-white border border-gray-300 w-full mt-1 max-h-40 overflow-y-auto roun
               className="flex items-center text-white hover:text-brand-600"
             >
               <FaPlus className="mr-2 text-white" /> Add More Products
-            </button >
+            </button>
           </div>
 
           {/* Discount */}
@@ -786,12 +780,12 @@ e z-10 bg-white border border-gray-300 w-full mt-1 max-h-40 overflow-y-auto roun
         </div>
       </div>
 
-      {/* Hidden iframe for WhatsApp message submission */}
-      <iframe
+      {/* Hidden iframe for WhatsApp message submission (No longer needed) */}
+      {/* <iframe
         name="hidden_iframe"
         style={{ display: 'none' }}
         title="hidden_iframe"
-      />
+      /> */}
     </div>
   );
 }
