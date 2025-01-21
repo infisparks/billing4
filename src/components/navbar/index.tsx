@@ -266,7 +266,7 @@ const Navbar = (props: {
         </div>
 
         {/* Profile Dropdown */}
-        <Dropdown
+        {/* <Dropdown
           button={
             <Image
               width="40"
@@ -309,7 +309,7 @@ const Navbar = (props: {
               </a>
             </div>
           </div>
-        </Dropdown>
+        </Dropdown> */}
       </div>
     </nav>
   );
