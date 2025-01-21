@@ -297,10 +297,10 @@ function SellList() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
         <div className="text-center">
           <svg
-            className="animate-spin h-10 w-10 text-brand-500 mx-auto"
+            className="animate-spin h-12 w-12 text-brand-500 mx-auto mb-4"
             xmlns="http://www.w3.org/2000/svg"
             fill="none"
             viewBox="0 0 24 24"
@@ -319,7 +319,7 @@ function SellList() {
               d="M4 12a8 8 0 018-8v8H4z"
             ></path>
           </svg>
-          <p className="mt-4 text-lg text-gray-700 dark:text-gray-300">Loading sales...</p>
+          <p className="text-lg text-gray-700 dark:text-gray-300">Loading sales...</p>
         </div>
       </div>
     );
@@ -327,113 +327,121 @@ function SellList() {
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
         <div className="text-center">
-          <p className="text-red-500 text-lg">{error}</p>
+          <p className="text-red-600 text-lg">{error}</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 sm:p-6 lg:p-8">
+    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 p-6 sm:p-8 lg:p-10">
       <ToastContainer />
 
       <div className="max-w-7xl mx-auto">
-        <h2 className="text-3xl font-extrabold text-gray-900 dark:text-white mb-6 text-center">
+        <h2 className="text-4xl font-extrabold text-gray-900 dark:text-white mb-8 text-center">
           Sold Products
         </h2>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-10">
           {/* Today Summary */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 flex items-center">
-            <FaCalendarDay className="text-brand-500 text-3xl mr-4" />
-            <div>
-              <p className="text-sm font-medium text-gray-500 dark:text-gray-300">Today</p>
-              <p className="mt-1 text-xl font-semibold text-gray-900 dark:text-white">
-                ₹{todaySummary.total.toFixed(2)}
-              </p>
-              <div className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                <span className="flex items-center">
-                  <FaCreditCard className="text-green-500 mr-1" /> Online: ₹{todaySummary.online.toFixed(2)}
-                </span>
-                <span className="flex items-center">
-                  <FaMoneyCheckAlt className="text-yellow-500 mr-1" /> Cash: ₹{todaySummary.cash.toFixed(2)}
-                </span>
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 flex flex-col justify-between transition transform hover:scale-105">
+            <div className="flex items-center">
+              <FaCalendarDay className="text-brand-500 text-4xl mr-4" />
+              <div>
+                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Today</p>
+                <p className="mt-1 text-2xl font-semibold text-gray-900 dark:text-white">
+                  ₹{todaySummary.total.toFixed(2)}
+                </p>
               </div>
+            </div>
+            <div className="mt-4 text-sm text-gray-600 dark:text-gray-400 flex flex-col space-y-1">
+              <span className="flex items-center">
+                <FaCreditCard className="text-green-500 mr-1" /> Online: ₹{todaySummary.online.toFixed(2)}
+              </span>
+              <span className="flex items-center">
+                <FaMoneyCheckAlt className="text-yellow-500 mr-1" /> Cash: ₹{todaySummary.cash.toFixed(2)}
+              </span>
             </div>
           </div>
 
           {/* Yesterday Summary */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 flex items-center">
-            <FaCalendarWeek className="text-brand-500 text-3xl mr-4" />
-            <div>
-              <p className="text-sm font-medium text-gray-500 dark:text-gray-300">Yesterday</p>
-              <p className="mt-1 text-xl font-semibold text-gray-900 dark:text-white">
-                ₹{yesterdaySummary.total.toFixed(2)}
-              </p>
-              <div className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                <span className="flex items-center">
-                  <FaCreditCard className="text-green-500 mr-1" /> Online: ₹{yesterdaySummary.online.toFixed(2)}
-                </span>
-                <span className="flex items-center">
-                  <FaMoneyCheckAlt className="text-yellow-500 mr-1" /> Cash: ₹{yesterdaySummary.cash.toFixed(2)}
-                </span>
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 flex flex-col justify-between transition transform hover:scale-105">
+            <div className="flex items-center">
+              <FaCalendarWeek className="text-brand-500 text-4xl mr-4" />
+              <div>
+                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Yesterday</p>
+                <p className="mt-1 text-2xl font-semibold text-gray-900 dark:text-white">
+                  ₹{yesterdaySummary.total.toFixed(2)}
+                </p>
               </div>
+            </div>
+            <div className="mt-4 text-sm text-gray-600 dark:text-gray-400 flex flex-col space-y-1">
+              <span className="flex items-center">
+                <FaCreditCard className="text-green-500 mr-1" /> Online: ₹{yesterdaySummary.online.toFixed(2)}
+              </span>
+              <span className="flex items-center">
+                <FaMoneyCheckAlt className="text-yellow-500 mr-1" /> Cash: ₹{yesterdaySummary.cash.toFixed(2)}
+              </span>
             </div>
           </div>
 
           {/* This Month Summary */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 flex items-center">
-            <FaCalendarAlt className="text-brand-500 text-3xl mr-4" />
-            <div>
-              <p className="text-sm font-medium text-gray-500 dark:text-gray-300">This Month</p>
-              <p className="mt-1 text-xl font-semibold text-gray-900 dark:text-white">
-                ₹{monthSummary.total.toFixed(2)}
-              </p>
-              <div className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                <span className="flex items-center">
-                  <FaCreditCard className="text-green-500 mr-1" /> Online: ₹{monthSummary.online.toFixed(2)}
-                </span>
-                <span className="flex items-center">
-                  <FaMoneyCheckAlt className="text-yellow-500 mr-1" /> Cash: ₹{monthSummary.cash.toFixed(2)}
-                </span>
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 flex flex-col justify-between transition transform hover:scale-105">
+            <div className="flex items-center">
+              <FaCalendarAlt className="text-brand-500 text-4xl mr-4" />
+              <div>
+                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">This Month</p>
+                <p className="mt-1 text-2xl font-semibold text-gray-900 dark:text-white">
+                  ₹{monthSummary.total.toFixed(2)}
+                </p>
               </div>
+            </div>
+            <div className="mt-4 text-sm text-gray-600 dark:text-gray-400 flex flex-col space-y-1">
+              <span className="flex items-center">
+                <FaCreditCard className="text-green-500 mr-1" /> Online: ₹{monthSummary.online.toFixed(2)}
+              </span>
+              <span className="flex items-center">
+                <FaMoneyCheckAlt className="text-yellow-500 mr-1" /> Cash: ₹{monthSummary.cash.toFixed(2)}
+              </span>
             </div>
           </div>
 
           {/* This Year Summary */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 flex items-center">
-            <FaCalendar className="text-brand-500 text-3xl mr-4" />
-            <div>
-              <p className="text-sm font-medium text-gray-500 dark:text-gray-300">This Year</p>
-              <p className="mt-1 text-xl font-semibold text-gray-900 dark:text-white">
-                ₹{yearSummary.total.toFixed(2)}
-              </p>
-              <div className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                <span className="flex items-center">
-                  <FaCreditCard className="text-green-500 mr-1" /> Online: ₹{yearSummary.online.toFixed(2)}
-                </span>
-                <span className="flex items-center">
-                  <FaMoneyCheckAlt className="text-yellow-500 mr-1" /> Cash: ₹{yearSummary.cash.toFixed(2)}
-                </span>
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 flex flex-col justify-between transition transform hover:scale-105">
+            <div className="flex items-center">
+              <FaCalendar className="text-brand-500 text-4xl mr-4" />
+              <div>
+                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">This Year</p>
+                <p className="mt-1 text-2xl font-semibold text-gray-900 dark:text-white">
+                  ₹{yearSummary.total.toFixed(2)}
+                </p>
               </div>
+            </div>
+            <div className="mt-4 text-sm text-gray-600 dark:text-gray-400 flex flex-col space-y-1">
+              <span className="flex items-center">
+                <FaCreditCard className="text-green-500 mr-1" /> Online: ₹{yearSummary.online.toFixed(2)}
+              </span>
+              <span className="flex items-center">
+                <FaMoneyCheckAlt className="text-yellow-500 mr-1" /> Cash: ₹{yearSummary.cash.toFixed(2)}
+              </span>
             </div>
           </div>
         </div>
 
         {/* Filter Section */}
-        <div className="mb-6">
+        <div className="mb-10">
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between space-y-4 md:space-y-0">
             {/* Filter Buttons */}
             <div className="flex flex-wrap space-x-2">
               <button
                 onClick={() => handleFilterChange('all')}
-                className={`flex items-center px-4 py-2 border rounded-md text-sm font-medium mb-2 md:mb-0 ${
+                className={`flex items-center px-4 py-2 border rounded-md text-sm font-medium transition ${
                   filter === 'all'
-                    ? 'bg-brand-500 text-white border-brand-500'
-                    : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700'
+                    ? 'bg-brand-600 text-white border-brand-600'
+                    : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
                 }`}
               >
                 <FaFilter className="mr-2" />
@@ -441,40 +449,40 @@ function SellList() {
               </button>
               <button
                 onClick={() => handleFilterChange('today')}
-                className={`flex items-center px-4 py-2 border rounded-md text-sm font-medium mb-2 md:mb-0 ${
+                className={`px-4 py-2 border rounded-md text-sm font-medium transition ${
                   filter === 'today'
-                    ? 'bg-brand-500 text-white border-brand-500'
-                    : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700'
+                    ? 'bg-brand-600 text-white border-brand-600'
+                    : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
                 }`}
               >
                 Today
               </button>
               <button
                 onClick={() => handleFilterChange('yesterday')}
-                className={`flex items-center px-4 py-2 border rounded-md text-sm font-medium mb-2 md:mb-0 ${
+                className={`px-4 py-2 border rounded-md text-sm font-medium transition ${
                   filter === 'yesterday'
-                    ? 'bg-brand-500 text-white border-brand-500'
-                    : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700'
+                    ? 'bg-brand-600 text-white border-brand-600'
+                    : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
                 }`}
               >
                 Yesterday
               </button>
               <button
                 onClick={() => handleFilterChange('customDate')}
-                className={`flex items-center px-4 py-2 border rounded-md text-sm font-medium mb-2 md:mb-0 ${
+                className={`px-4 py-2 border rounded-md text-sm font-medium transition ${
                   filter === 'customDate'
-                    ? 'bg-brand-500 text-white border-brand-500'
-                    : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700'
+                    ? 'bg-brand-600 text-white border-brand-600'
+                    : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
                 }`}
               >
                 Custom Date
               </button>
               <button
                 onClick={() => handleFilterChange('customMonth')}
-                className={`flex items-center px-4 py-2 border rounded-md text-sm font-medium items-center ${
+                className={`px-4 py-2 border rounded-md text-sm font-medium transition ${
                   filter === 'customMonth'
-                    ? 'bg-brand-500 text-white border-brand-500'
-                    : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700'
+                    ? 'bg-brand-600 text-white border-brand-600'
+                    : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
                 }`}
               >
                 Custom Month
@@ -482,22 +490,22 @@ function SellList() {
             </div>
 
             {/* Search Bar */}
-            <div className="relative w-min max-w-md">
+            <div className="relative w-full max-w-md">
               <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
               <input
                 type="text"
                 placeholder="Search sales..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-min pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-600"
               />
             </div>
           </div>
 
           {/* Custom Date Range Picker */}
           {filter === 'customDate' && (
-            <div className="mt-4 flex flex-col md:flex-row items-start md:items-center space-y-4 md:space-y-0 md:space-x-4">
-              <div className="flex flex-col w-full md:w-auto">
+            <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="flex flex-col">
                 <label htmlFor="startDate" className="text-sm text-gray-700 dark:text-gray-300 mb-1">
                   Start Date
                 </label>
@@ -508,10 +516,10 @@ function SellList() {
                   onChange={(e) =>
                     setCustomDateRange((prev) => ({ ...prev, start: e.target.value }))
                   }
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-600"
                 />
               </div>
-              <div className="flex flex-col w-full md:w-auto">
+              <div className="flex flex-col">
                 <label htmlFor="endDate" className="text-sm text-gray-700 dark:text-gray-300 mb-1">
                   End Date
                 </label>
@@ -522,7 +530,7 @@ function SellList() {
                   onChange={(e) =>
                     setCustomDateRange((prev) => ({ ...prev, end: e.target.value }))
                   }
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-600"
                 />
               </div>
             </div>
@@ -530,8 +538,8 @@ function SellList() {
 
           {/* Custom Month Picker */}
           {filter === 'customMonth' && (
-            <div className="mt-4 flex flex-col md:flex-row items-start md:items-center space-y-4 md:space-y-0 md:space-x-4">
-              <div className="flex flex-col w-full md:w-auto">
+            <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="flex flex-col">
                 <label htmlFor="month" className="text-sm text-gray-700 dark:text-gray-300 mb-1">
                   Month
                 </label>
@@ -541,7 +549,7 @@ function SellList() {
                   onChange={(e) =>
                     setCustomMonth((prev) => ({ ...prev, month: e.target.value }))
                   }
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-600"
                 >
                   <option value="">Select Month</option>
                   {Array.from({ length: 12 }, (_, i) => (
@@ -551,7 +559,7 @@ function SellList() {
                   ))}
                 </select>
               </div>
-              <div className="flex flex-col w-full md:w-auto">
+              <div className="flex flex-col">
                 <label htmlFor="year" className="text-sm text-gray-700 dark:text-gray-300 mb-1">
                   Year
                 </label>
@@ -563,7 +571,7 @@ function SellList() {
                   onChange={(e) =>
                     setCustomMonth((prev) => ({ ...prev, year: e.target.value }))
                   }
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-600"
                 />
               </div>
             </div>
@@ -571,8 +579,8 @@ function SellList() {
         </div>
 
         {/* Total Sales */}
-        <div className="mb-4 flex justify-end">
-          <div className="text-lg font-semibold text-gray-800 dark:text-gray-200">
+        <div className="mb-6 flex justify-end">
+          <div className="text-xl font-semibold text-gray-800 dark:text-gray-200">
             Total Sales: ₹{totalPrice.toFixed(2)}
           </div>
         </div>
@@ -583,41 +591,41 @@ function SellList() {
             No sales found.
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
-              <thead>
+          <div className="overflow-x-auto rounded-lg shadow-lg">
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+              <thead className="bg-gray-50 dark:bg-gray-800">
                 <tr>
-                  <th className="px-6 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-700 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                     <div className="flex items-center">
                       <FaBox className="mr-2" />
                       Customer Name
                     </div>
                   </th>
-                  <th className="px-6 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-700 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                     <div className="flex items-center">
                       <FaInfoCircle className="mr-2" />
                       Customer Phone
                     </div>
                   </th>
-                  <th className="px-6 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-700 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                     <div className="flex items-center">
                       <FaDollarSign className="mr-2" />
                       Products
                     </div>
                   </th>
-                  <th className="px-6 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-700 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                     <div className="flex items-center">
                       <FaCreditCard className="mr-2" />
                       Payment Method
                     </div>
                   </th>
-                  <th className="px-6 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-700 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                     <div className="flex items-center">
                       <FaCalendarAlt className="mr-2" />
                       Sold On
                     </div>
                   </th>
-                  <th className="px-6 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-700 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                     <div className="flex items-center">
                       <FaDollarSign className="mr-2" />
                       Total (₹)
@@ -625,17 +633,17 @@ function SellList() {
                   </th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                 {filteredSales.map((sale) => (
-                  <tr key={sale.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                  <tr key={sale.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition">
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
                       {sale.customerName}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-600 dark:text-blue-400">
                       {/* **Clickable Phone Number** */}
                       <button
                         onClick={() => handlePhoneClick(sale.customerPhone)}
-                        className="text-blue-600 dark:text-blue-400 underline hover:text-blue-800 dark:hover:text-blue-600 focus:outline-none"
+                        className="underline hover:text-blue-800 dark:hover:text-blue-600 focus:outline-none"
                       >
                         {sale.customerPhone}
                       </button>
@@ -677,8 +685,8 @@ function SellList() {
 
         {/* Total Sales Footer */}
         {filteredSales.length > 0 && (
-          <div className="mt-4 flex justify-end">
-            <div className="text-lg font-semibold text-gray-800 dark:text-gray-200">
+          <div className="mt-6 flex justify-end">
+            <div className="text-xl font-semibold text-gray-800 dark:text-gray-200">
               Total Sales: ₹{totalPrice.toFixed(2)}
             </div>
           </div>
@@ -687,11 +695,11 @@ function SellList() {
         {/* **Modal Component** */}
         {isModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg w-full max-w-2xl p-6 relative">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg w-full max-w-3xl p-6 relative">
               {/* Close Button */}
               <button
                 onClick={closeModal}
-                className="absolute top-3 right-3 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 focus:outline-none"
+                className="absolute top-4 right-4 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 focus:outline-none"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none"
                   viewBox="0 0 24 24" stroke="currentColor">
@@ -700,19 +708,19 @@ function SellList() {
                 </svg>
               </button>
 
-              <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+              <h3 className="text-2xl font-semibold text-gray-900 dark:text-white mb-6">
                 Purchases by {selectedPhoneNumber}
               </h3>
 
               {/* Total Purchase Amount */}
-              <div className="mb-4">
+              <div className="mb-6">
                 <p className="text-lg font-medium text-gray-700 dark:text-gray-300">
                   Total Amount: ₹{customerTotal.toFixed(2)}
                 </p>
               </div>
 
               {/* Sales List */}
-              <div className="overflow-y-auto max-h-80">
+              <div className="overflow-y-auto max-h-96">
                 {customerSales.length === 0 ? (
                   <p className="text-gray-600 dark:text-gray-400">No purchases found for this number.</p>
                 ) : (
@@ -739,7 +747,7 @@ function SellList() {
               <div className="mt-6 flex justify-end">
                 <button
                   onClick={closeModal}
-                  className="px-4 py-2 bg-brand-500 text-white rounded-md hover:bg-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  className="px-6 py-2 bg-brand-600 text-white rounded-md hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-600"
                 >
                   Close
                 </button>

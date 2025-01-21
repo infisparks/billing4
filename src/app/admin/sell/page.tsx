@@ -29,7 +29,6 @@ import { v4 as uuidv4 } from 'uuid';
 import jsPDF from 'jspdf';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-// -----------------------------------------
 
 // 1) Convert an image (like letterhead) to Base64
 async function getImageBase64(url: string): Promise<string> {
@@ -81,15 +80,16 @@ async function uploadPDFToFirebaseStorage(pdfBlob: Blob, fileName: string): Prom
   }
 }
 
-// 3) Send WhatsApp message with the PDF link using the provided API
+// 3) Send WhatsApp message with the PDF link
 async function sendWhatsAppMessage(
   phoneNumber: string,
   message: string,
   mediaUrl: string,
-  filename: string
+  filename: string,
+  token: string
 ) {
-  const token = "9958399157"; // Your provided token
-  const recipientNumber = `91${phoneNumber}`; // Assuming '91' is the country code for India
+  // Construct the recipient phone number (India code assumed: +91)
+  const recipientNumber = `91${phoneNumber}`;
 
   const apiUrl = 'https://wa.medblisss.com/send-image-url';
 
@@ -120,7 +120,7 @@ async function sendWhatsAppMessage(
 }
 
 // 4) Create PDF with jsPDF, then upload to Firebase Storage and return URL
-async function createAndUploadPDF(saleData: any, allProducts: any[]) {
+async function createAndUploadPDF(saleData: any) {
   const doc = new jsPDF('p', 'mm', 'a4');
   try {
     // Optional: Add letterhead or background image
@@ -200,7 +200,7 @@ async function createAndUploadPDF(saleData: any, allProducts: any[]) {
     doc.text('Total:', 130, yPosition, { align: 'right' });
     doc.text(`${total.toFixed(2)}`, 160, yPosition, { align: 'right' });
 
-    // Footer with Sweet Message
+    // Footer
     yPosition += 20;
     doc.setFontSize(12);
     doc.setFont('Helvetica', 'normal');
@@ -255,6 +255,20 @@ function AddProduct() {
   // Suggestions State
   const [suggestions, setSuggestions] = useState<{ [key: string]: any[] }>({});
 
+  // WhatsApp token from Firebase
+  const [waToken, setWaToken] = useState<string>('');
+
+  // Fetch the WhatsApp token from the DB
+  useEffect(() => {
+    const tokenRef = dbRef(database, 'token/token');
+    const unsub = onValue(tokenRef, (snapshot) => {
+      if (snapshot.exists()) {
+        setWaToken(snapshot.val().toString());
+      }
+    });
+    return () => unsub();
+  }, []);
+
   // Fetch products for auto-suggestion
   useEffect(() => {
     const productsRef = dbRef(database, 'products');
@@ -296,6 +310,7 @@ function AddProduct() {
   // Handle Customer Phone Input
   const handleCustomerPhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
+    // Only allow up to 10 digits
     if (/^\d{0,10}$/.test(value)) {
       setCustomerPhone(value);
     }
@@ -336,7 +351,6 @@ function AddProduct() {
     const updatedProducts = [...products];
     updatedProducts[index].name = product.name;
     updatedProducts[index].price = product.price;
-    // If you want to set default line-quantity from DB, do it here if available
     setProducts(updatedProducts);
 
     setSuggestions((prev) => ({
@@ -434,7 +448,7 @@ function AddProduct() {
       }
     }
 
-    // Calculate Subtotal (Price * Quantity per line item)
+    // Calculate Subtotal (Price * Quantity)
     const subtotal = products.reduce((acc, curr) => acc + curr.price * curr.quantity, 0);
 
     if (discount < 0) {
@@ -446,7 +460,7 @@ function AddProduct() {
       return;
     }
 
-    // Calculate line-item total, then overall total
+    // Overall total
     const total = subtotal - discount;
 
     // Build saleData
@@ -479,12 +493,12 @@ function AddProduct() {
             `products/${matchedProduct.id}/quantity`
           );
 
-          // Subtract the line-item quantity (not just 1)
+          // Subtract the line-item quantity
           await runTransaction(productQuantityRef, (currentQuantity) => {
             if (currentQuantity === null) {
               return 0;
             }
-            return currentQuantity - soldProduct.quantity; // Decrement by line-item quantity
+            return currentQuantity - soldProduct.quantity;
           })
             .then((result) => {
               if (!result.committed) {
@@ -506,9 +520,7 @@ function AddProduct() {
               );
             });
         } else {
-          console.warn(
-            `Product ${soldProduct.name} not found in allProducts.`
-          );
+          console.warn(`Product ${soldProduct.name} not found in allProducts.`);
           toast.error(
             `Product ${soldProduct.name} not found. Quantity not updated.`
           );
@@ -522,15 +534,20 @@ function AddProduct() {
       toast.success('Sale recorded successfully! Generating PDF...');
 
       // 3) Generate PDF, upload to Firebase Storage, then send via WhatsApp
-      const pdfResult = await createAndUploadPDF(saleData, allProducts);
+      const pdfResult = await createAndUploadPDF(saleData);
       if (pdfResult && pdfResult.downloadURL) {
-        // Send WhatsApp message with PDF link
-        await sendWhatsAppMessage(
-          customerPhone,
-          `Hello ${customerName}, here is your invoice.`,
-          pdfResult.downloadURL,
-          pdfResult.fileName
-        );
+        // Make sure we have a valid WhatsApp token before sending
+        if (!waToken) {
+          toast.error('WhatsApp token not loaded. Cannot send message.');
+        } else {
+          await sendWhatsAppMessage(
+            customerPhone,
+            `Hello ${customerName}, here is your invoice.`,
+            pdfResult.downloadURL,
+            pdfResult.fileName,
+            waToken
+          );
+        }
       }
 
       // 4) Reset Form
@@ -621,13 +638,12 @@ function AddProduct() {
             </div>
           </div>
 
-          {/* Products Selection */}
+          {/* Products */}
           <div className="space-y-4">
             {products.map((product, index) => (
               <div key={product.id} className="relative border p-4 rounded-md">
                 {/* Product Name */}
                 <div className="">
-                  {/* Product Name */}
                   <div className="relative flex-1 mr-4">
                     <FaBox className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
                     <InputField
@@ -644,13 +660,13 @@ function AddProduct() {
                     {/* Suggestions Dropdown */}
                     {suggestions[product.id] && suggestions[product.id].length > 0 && (
                       <ul className="absolute z-10 bg-white border border-gray-300 w-full mt-1 max-h-40 overflow-y-auto rounded-md shadow-lg">
-                        {suggestions[product.id].map((suggestion) => (
+                        {suggestions[product.id].map((sugg) => (
                           <li
-                            key={suggestion.id}
+                            key={sugg.id}
                             className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
-                            onClick={() => handleProductSelect(suggestion, index)}
+                            onClick={() => handleProductSelect(sugg, index)}
                           >
-                            {suggestion.name}
+                            {sugg.name}
                           </li>
                         ))}
                       </ul>
@@ -779,13 +795,6 @@ function AddProduct() {
           </a>
         </div>
       </div>
-
-      {/* Hidden iframe for WhatsApp message submission (No longer needed) */}
-      {/* <iframe
-        name="hidden_iframe"
-        style={{ display: 'none' }}
-        title="hidden_iframe"
-      /> */}
     </div>
   );
 }
