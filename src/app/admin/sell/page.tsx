@@ -17,12 +17,14 @@ import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage
 
 import {
   FaBox,
-  FaDollarSign,
+
   FaSortNumericDown,
   FaChartLine,
   FaPlus,
   FaTrash,
+  
 } from 'react-icons/fa';
+import { FaIndianRupeeSign } from "react-icons/fa6";
 import { v4 as uuidv4 } from 'uuid';
 
 // --- Imports for PDF and Notifications ---
@@ -675,7 +677,10 @@ function AddProduct() {
 
                   {/* Quantity Input */}
                   <div className="relative w-full">
-                    <FaSortNumericDown className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                    {/* <FaSortNumericDown className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" /> */}
+                    <div className='flex text-center items-center ' >
+
+                    <label className='text-white pr-4'>Qty</label>
                     <input
                       type="number"
                       value={product.quantity}
@@ -685,13 +690,14 @@ function AddProduct() {
                       min="1"
                       step="1"
                       required
-                    />
+                      />
+                      </div>
                   </div>
                 </div>
 
                 {/* Product Price */}
                 <div className="relative mt-2">
-                  <FaDollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 " />
+                  <FaIndianRupeeSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 " />
                   <input
                     type="number"
                     value={product.price === 0 ? '' : product.price}
@@ -729,7 +735,7 @@ function AddProduct() {
           </div>
 
           {/* Discount */}
-          <div className="relative">
+          <div className="relative items-center justify-center">
             <FaChartLine className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
             <InputField
               variant="auth"
@@ -737,11 +743,10 @@ function AddProduct() {
               label="Discount (₹)"
               placeholder="Enter discount amount"
               id="discount"
-              type="number"
+              type="text"
               value={discount}
               onChange={handleDiscountChange}
-              min="0"
-              step="0.01"
+             
             />
           </div>
 
