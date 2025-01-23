@@ -8,15 +8,12 @@ import { ref, onValue } from 'firebase/database';
 import {
   FaSearch,
   FaBox,
-  FaDollarSign,
   FaWarehouse,
   FaExclamationCircle,
   FaFilter,
-  FaList,
 } from 'react-icons/fa';
-import {
-  format,
-} from 'date-fns';
+// Removed FaDollarSign and FaList as they're no longer needed
+import { format } from 'date-fns';
 
 /*
   Interface for the product data in Firebase:
@@ -38,11 +35,11 @@ interface Product {
   name: string;
   price: number;
   quantity: number;
-  averageQuantity: number;  // For the new Purchase List tab
+  averageQuantity: number; // For the new column in Inventory tab
   // ... any other fields you might have
 }
 
-type TabType = 'inventory' | 'purchaseList';
+type TabType = 'inventory'; // Only 'inventory' tab is needed
 
 function ProductDashboard() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -100,7 +97,7 @@ function ProductDashboard() {
     }
   }, [searchTerm, products]);
 
-  // Handling tab switching
+  // Handling tab switching (only 'inventory' remains)
   const handleTabChange = (tab: TabType) => {
     setSelectedTab(tab);
   };
@@ -149,9 +146,6 @@ function ProductDashboard() {
   // Calculate total items (for Inventory tab)
   const totalItems = filteredProducts.length;
 
-  // Inventory tab: Summation if needed
-  // e.g., const totalQuantity = filteredProducts.reduce((acc, p) => acc + p.quantity, 0);
-
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 sm:p-6 lg:p-8">
       <div className="max-w-7xl mx-auto">
@@ -174,18 +168,7 @@ function ProductDashboard() {
             <FaFilter className="inline-block mr-2" />
             Inventory
           </button>
-          <button
-            onClick={() => handleTabChange('purchaseList')}
-            className={`px-4 py-2 text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500
-              ${
-                selectedTab === 'purchaseList'
-                  ? 'bg-brand-500 text-white'
-                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700'
-              }`}
-          >
-            <FaList className="inline-block mr-2" />
-            Purchase List
-          </button>
+          {/* Removed Purchase List tab button */}
         </div>
 
         {/* Search Bar */}
@@ -207,9 +190,7 @@ function ProductDashboard() {
           <InventoryTab products={filteredProducts} />
         )}
 
-        {selectedTab === 'purchaseList' && (
-          <PurchaseListTab products={filteredProducts} />
-        )}
+        {/* Removed PurchaseListTab rendering */}
       </div>
     </div>
   );
@@ -242,11 +223,12 @@ function InventoryTab({ products }: InventoryTabProps) {
                 Product Name
               </div>
             </th>
+            {/* Removed FaDollarSign and updated Price column */}
             <th className="px-6 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-700 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-              <div className="flex items-center">
-                <FaDollarSign className="mr-2" />
-                Price (₹)
-              </div>
+              Price (₹)
+            </th>
+            <th className="px-6 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-700 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+              Average Quantity
             </th>
             <th className="px-6 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-700 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
               <div className="flex items-center">
@@ -272,6 +254,9 @@ function InventoryTab({ products }: InventoryTabProps) {
                 ₹{product.price.toFixed(2)}
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
+                {product.averageQuantity}
+              </td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
                 {product.quantity}
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm">
@@ -289,86 +274,6 @@ function InventoryTab({ products }: InventoryTabProps) {
   );
 }
 
-/* ------------------------------------------
-   Purchase List Tab
------------------------------------------- */
-interface PurchaseListTabProps {
-  products: Product[];
-}
-
-function PurchaseListTab({ products }: PurchaseListTabProps) {
-  if (products.length === 0) {
-    return (
-      <div className="text-center text-gray-600 dark:text-gray-400">
-        No products found.
-      </div>
-    );
-  }
-
-  return (
-    <div className="overflow-x-auto">
-      <table className="min-w-full bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
-        <thead>
-          <tr>
-            <th className="px-6 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-700 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-              <div className="flex items-center">
-                <FaBox className="mr-2" />
-                Product Name
-              </div>
-            </th>
-            <th className="px-6 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-700 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-              Average Qty
-            </th>
-            <th className="px-6 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-700 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-              Current Qty
-            </th>
-            <th className="px-6 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-700 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-              Difference
-            </th>
-            <th className="px-6 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-700 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-              Status
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {products.map((product) => {
-            const difference = product.quantity - product.averageQuantity;
-            return (
-              <tr key={product.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
-                  {product.name}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
-                  {product.averageQuantity}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
-                  {product.quantity}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
-                  {difference > 0 ? `+${difference}` : difference}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm">
-                  {difference < 0 ? (
-                    <span className="text-red-500 font-semibold">
-                      Need more by {Math.abs(difference)}
-                    </span>
-                  ) : difference > 0 ? (
-                    <span className="text-green-500 font-semibold">
-                      You have extra by {difference}
-                    </span>
-                  ) : (
-                    <span className="text-gray-500 font-semibold">
-                      Perfectly balanced
-                    </span>
-                  )}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
-  );
-}
+// Removed PurchaseListTab component as it's no longer needed
 
 export default ProductDashboard;

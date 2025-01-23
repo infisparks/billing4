@@ -44,11 +44,6 @@ const routes = [
     path: 'mostsell',
     icon: <MdPerson className="h-6 w-6" />,
   }, {
-    name: 'Progress Graph',
-    layout: '/admin',
-    path: 'sellgraph',
-    icon: <MdPerson className="h-6 w-6" />,
-  },{
     name: 'Whatsapp',
     layout: '/admin',
     path: 'whlogin',
