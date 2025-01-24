@@ -480,13 +480,13 @@ function MostSell() {
         <div className="mb-10">
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between space-y-4 md:space-y-0">
             {/* Filter Buttons */}
-            <div className="flex flex-wrap space-x-2 mt-4 md:mt-0">
+            <div className="flex flex-wrap space-x-2 space-y-2 mt-4 md:mt-0">
               {["all", "today", "yesterday", "customDate", "customMonth", "customYear"].map(
                 (f) => (
                   <button
                     key={f}
                     onClick={() => handleFilterChange(f as FilterType)}
-                    className={`flex items-center px-4 py-2 border rounded-md text-sm font-medium transition ${
+                    className={`flex items-center px-4 py-2 space-y-2 border rounded-md text-sm font-medium transition ${
                       filter === f
                         ? "bg-brand-600 text-white border-brand-600"
                         : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"

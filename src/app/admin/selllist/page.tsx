@@ -433,9 +433,9 @@ function SellList() {
 
         {/* Filter Section */}
         <div className="mb-10">
-          <div className="flex flex-col md:flex-row items-start md:items-center justify-between space-y-4 md:space-y-0">
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between space-y-4 md:space-y-0 ">
             {/* Filter Buttons */}
-            <div className="flex flex-wrap space-x-2">
+            <div className="flex flex-wrap space-x-2 space-y-2">
               <button
                 onClick={() => handleFilterChange('all')}
                 className={`flex items-center px-4 py-2 border rounded-md text-sm font-medium transition ${
