@@ -3,9 +3,12 @@ import {
   MdHome,
   MdOutlineShoppingCart,
   MdBarChart,
-  MdPerson,
-  MdChair,
+ 
 } from 'react-icons/md';
+import { IoLogoWhatsapp } from "react-icons/io";
+import { MdOutlineInventory } from "react-icons/md";
+import { BiSolidAddToQueue } from "react-icons/bi";
+import { MdProductionQuantityLimits } from "react-icons/md";
 
 const routes = [
   {
@@ -31,23 +34,25 @@ const routes = [
     name: 'Inventory',
     layout: '/admin',
     path: 'inventry',
-    icon: <MdChair className="h-6 w-6" />,
+    icon: <MdProductionQuantityLimits className="h-6 w-6" />,
   },
+  {
+    name: 'Progress Reports',
+    layout: '/admin',
+    path: 'mostsell',
+    icon: <MdOutlineInventory  className="h-6 w-6" />,
+  }, 
   {
     name: 'Add Product',
     layout: '/admin',
     path: 'entry',
-    icon: <MdPerson className="h-6 w-6" />,
-  }, {
-    name: 'Progress Report',
-    layout: '/admin',
-    path: 'mostsell',
-    icon: <MdPerson className="h-6 w-6" />,
-  }, {
+    icon: <BiSolidAddToQueue className="h-6 w-6" />,
+  },
+  {
     name: 'Whatsapp',
     layout: '/admin',
     path: 'whlogin',
-    icon: <MdPerson className="h-6 w-6" />,
+    icon: <IoLogoWhatsapp className="h-6 w-6" />,
   },
  
 ];

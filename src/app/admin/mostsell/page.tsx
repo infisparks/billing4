@@ -1,9 +1,9 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useMemo } from "react"
 import { database } from "../../../../firebase/firebaseConfig"
 import { ref, onValue } from "firebase/database"
-import { FaBox, FaFilter, FaSearch, FaChartBar, FaClock } from "react-icons/fa"
+import { FaBox, FaFilter, FaSearch } from "react-icons/fa"
 import {
   format,
   isToday,
@@ -28,8 +28,9 @@ import {
   ResponsiveContainer,
   Legend,
   CartesianGrid,
-  Cell, // Imported Cell
+  Cell,
 } from "recharts"
+import debounce from "lodash.debounce"
 
 interface Product {
   name: string
@@ -73,7 +74,6 @@ interface TimeReportData {
 
 function MostSell() {
   const [sales, setSales] = useState<SoldProduct[]>([])
-  const [filteredSales, setFilteredSales] = useState<SoldProduct[]>([])
   const [loading, setLoading] = useState<boolean>(true)
   const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState<string>("")
@@ -90,21 +90,14 @@ function MostSell() {
     year: "",
   })
 
-  // Summary state
-  const [summary, setSummary] = useState<Summary>({ totalProductsSold: 0 })
-
-  // Product sales count
-  const [productSales, setProductSales] = useState<ProductSalesCount[]>([])
-
   // Sales Comparison State
   const [salesComparisonFilter, setSalesComparisonFilter] = useState<"week" | "month" | "year">("month")
-  const [salesComparisonData, setSalesComparisonData] = useState<SalesComparisonData[]>([])
 
   // Time Report State
   const [timeReportFilter, setTimeReportFilter] = useState<"day" | "month">("day")
   const [selectedTimePeriod, setSelectedTimePeriod] = useState<string>("") // e.g., '2025-01' or '2025-01-22'
-  const [timeReportData, setTimeReportData] = useState<TimeReportData[]>([])
 
+  // Fetch Sales Data
   useEffect(() => {
     const salesRef = ref(database, "sales")
     const unsubscribe = onValue(
@@ -135,18 +128,8 @@ function MostSell() {
           validSalesList.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
 
           setSales(validSalesList)
-          setFilteredSales(validSalesList)
-          calculateSummary(validSalesList)
-          aggregateProductSales(validSalesList)
-          processSalesComparisonData(validSalesList)
-          // Time Report will be processed based on selected filters
         } else {
           setSales([])
-          setFilteredSales([])
-          setSummary({ totalProductsSold: 0 })
-          setProductSales([])
-          setSalesComparisonData([])
-          setTimeReportData([])
         }
         setLoading(false)
       },
@@ -161,22 +144,98 @@ function MostSell() {
     return () => unsubscribe()
   }, [])
 
-  // Calculate summary
-  const calculateSummary = useCallback((salesList: SoldProduct[]) => {
+  // Debounced Search Term
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState<string>("")
+
+  const debounceSearch = useMemo(
+    () =>
+      debounce((term: string) => {
+        setDebouncedSearchTerm(term)
+      }, 300),
+    [],
+  )
+
+  useEffect(() => {
+    debounceSearch(searchTerm)
+    return () => {
+      debounceSearch.cancel()
+    }
+  }, [searchTerm, debounceSearch])
+
+  // Filtered Sales based on filter and search
+  const filteredSales = useMemo(() => {
+    let tempSales = [...sales]
+
+    // Apply Filter
+    if (filter === "today") {
+      tempSales = tempSales.filter((sale) => isToday(parseISO(sale.timestamp)))
+    } else if (filter === "yesterday") {
+      tempSales = tempSales.filter((sale) => isYesterday(parseISO(sale.timestamp)))
+    } else if (filter === "customDate") {
+      const { start, end } = customDateRange
+      if (start && end) {
+        const startDate = new Date(start)
+        const endDate = new Date(end)
+        tempSales = tempSales.filter((sale) => {
+          const saleDate = new Date(sale.timestamp)
+          return saleDate >= startDate && saleDate <= endDate
+        })
+      }
+    } else if (filter === "customMonth") {
+      const { month, year } = customMonth
+      if (month && year) {
+        tempSales = tempSales.filter((sale) => {
+          const saleDate = new Date(sale.timestamp)
+          return (
+            saleDate.getMonth() + 1 === Number.parseInt(month) &&
+            saleDate.getFullYear() === Number.parseInt(year)
+          )
+        })
+      }
+    } else if (filter === "customYear") {
+      const { year } = customYear
+      if (year) {
+        tempSales = tempSales.filter((sale) => {
+          const saleDate = new Date(sale.timestamp)
+          return saleDate.getFullYear() === Number.parseInt(year)
+        })
+      }
+    }
+
+    // Apply Search Filter
+    if (debouncedSearchTerm.trim() !== "") {
+      const lowercasedTerm = debouncedSearchTerm.toLowerCase()
+      tempSales = tempSales.filter(
+        (sale) =>
+          sale.customerName.toLowerCase().includes(lowercasedTerm) ||
+          sale.customerPhone.includes(lowercasedTerm) ||
+          sale.products.some(
+            (product) =>
+              product.name.toLowerCase().includes(lowercasedTerm) ||
+              product.price.toString().includes(lowercasedTerm),
+          ),
+      )
+    }
+
+    return tempSales
+  }, [sales, filter, customDateRange, customMonth, customYear, debouncedSearchTerm])
+
+  // Summary
+  const summary = useMemo<Summary>(() => {
     let totalProducts = 0
-    salesList.forEach((sale) => {
+    filteredSales.forEach((sale) => {
       sale.products.forEach((product) => {
         totalProducts += product.quantity
       })
     })
-    setSummary({ totalProductsSold: totalProducts })
-  }, [])
+    return { totalProductsSold: totalProducts }
+  }, [filteredSales])
 
-  // Aggregate product sales counts
-  const aggregateProductSales = useCallback((salesList: SoldProduct[]) => {
+  // Product Sales Count
+  const productSales = useMemo<ProductSalesCount[]>(() => {
     const productMap: { [key: string]: { count: number; revenue: number } } = {}
 
-    salesList.forEach((sale) => {
+    filteredSales.forEach((sale) => {
       sale.products.forEach((product) => {
         if (productMap[product.name]) {
           productMap[product.name].count += product.quantity
@@ -196,95 +255,97 @@ function MostSell() {
     // Sort by count descending
     aggregated.sort((a, b) => b.count - a.count)
 
-    setProductSales(aggregated)
+    return aggregated
+  }, [filteredSales])
+
+  // Function to determine cell color based on totalSales
+  const getColor = useCallback((totalSales: number) => {
+    if (totalSales > 1000) return "#FF0000" // Red for High
+    if (totalSales > 500) return "#FFA500" // Orange for Moderate
+    if (totalSales > 100) return "#008000" // Green for Medium
+    return "#0000FF" // Blue for Low
   }, [])
 
-  // Process Sales Comparison Data
-  const processSalesComparisonData = useCallback(
-    (salesList: SoldProduct[]) => {
-      const today = new Date()
-      let start: Date
-      let end: Date
+  // Sales Comparison Data
+  const salesComparisonData = useMemo<SalesComparisonData[]>(() => {
+    const today = new Date()
+    let start: Date
+    let end: Date
+    let dataMap: { [key: string]: number } = {}
 
-      if (salesComparisonFilter === "week") {
-        start = startOfWeek(today, { weekStartsOn: 1 }) // Monday
-        end = endOfWeek(today, { weekStartsOn: 1 })
-        // Group by day
-        const dataMap: { [key: string]: number } = {}
-        for (let i = 0; i < 7; i++) {
-          const day = format(new Date(start.getTime() + i * 24 * 60 * 60 * 1000), "EEE")
-          dataMap[day] = 0
-        }
-
-        salesList.forEach((sale) => {
-          const saleDate = parseISO(sale.timestamp)
-          if (saleDate >= start && saleDate <= end) {
-            const day = format(saleDate, "EEE")
-            dataMap[day] += sale.total
-          }
-        })
-
-        const comparisonData: SalesComparisonData[] = Object.keys(dataMap).map((key) => ({
-          period: key,
-          totalSales: dataMap[key],
-        }))
-
-        setSalesComparisonData(comparisonData)
-      } else if (salesComparisonFilter === "month") {
-        start = startOfMonth(today)
-        end = endOfMonth(today)
-        // Group by week
-        const weeks: { [key: string]: number } = {}
-        const weekCount = Math.ceil((end.getDate() - start.getDate() + 1) / 7)
-        for (let i = 1; i <= weekCount; i++) {
-          weeks[`Week ${i}`] = 0
-        }
-
-        salesList.forEach((sale) => {
-          const saleDate = parseISO(sale.timestamp)
-          if (saleDate >= start && saleDate <= end) {
-            const weekNumber = Math.ceil(saleDate.getDate() / 7)
-            weeks[`Week ${weekNumber}`] += sale.total
-          }
-        })
-
-        const comparisonData: SalesComparisonData[] = Object.keys(weeks).map((key) => ({
-          period: key,
-          totalSales: weeks[key],
-        }))
-
-        setSalesComparisonData(comparisonData)
-      } else if (salesComparisonFilter === "year") {
-        start = startOfYear(today)
-        end = endOfYear(today)
-        // Group by month
-        const dataMap: { [key: string]: number } = {}
-        for (let i = 0; i < 12; i++) {
-          const month = format(new Date(0, i), "MMM")
-          dataMap[month] = 0
-        }
-
-        salesList.forEach((sale) => {
-          const saleDate = parseISO(sale.timestamp)
-          if (saleDate >= start && saleDate <= end) {
-            const month = format(saleDate, "MMM")
-            dataMap[month] += sale.total
-          }
-        })
-
-        const comparisonData: SalesComparisonData[] = Object.keys(dataMap).map((key) => ({
-          period: key,
-          totalSales: dataMap[key],
-        }))
-
-        setSalesComparisonData(comparisonData)
+    if (salesComparisonFilter === "week") {
+      start = startOfWeek(today, { weekStartsOn: 1 }) // Monday
+      end = endOfWeek(today, { weekStartsOn: 1 })
+      // Group by day
+      dataMap = {}
+      for (let i = 0; i < 7; i++) {
+        const day = format(new Date(start.getTime() + i * 24 * 60 * 60 * 1000), "EEE")
+        dataMap[day] = 0
       }
-    },
-    [salesComparisonFilter],
-  )
 
-  // Process Time Report Data
-  const processTimeReportData = useCallback(() => {
+      filteredSales.forEach((sale) => {
+        const saleDate = parseISO(sale.timestamp)
+        if (saleDate >= start && saleDate <= end) {
+          const day = format(saleDate, "EEE")
+          dataMap[day] += sale.total
+        }
+      })
+
+      return Object.keys(dataMap).map((key) => ({
+        period: key,
+        totalSales: dataMap[key],
+      }))
+    } else if (salesComparisonFilter === "month") {
+      start = startOfMonth(today)
+      end = endOfMonth(today)
+      // Group by week
+      const weeks: { [key: string]: number } = {}
+      const weekCount = Math.ceil((end.getDate() - start.getDate() + 1) / 7)
+      for (let i = 1; i <= weekCount; i++) {
+        weeks[`Week ${i}`] = 0
+      }
+
+      filteredSales.forEach((sale) => {
+        const saleDate = parseISO(sale.timestamp)
+        if (saleDate >= start && saleDate <= end) {
+          const weekNumber = Math.ceil(saleDate.getDate() / 7)
+          weeks[`Week ${weekNumber}`] += sale.total
+        }
+      })
+
+      return Object.keys(weeks).map((key) => ({
+        period: key,
+        totalSales: weeks[key],
+      }))
+    } else if (salesComparisonFilter === "year") {
+      start = startOfYear(today)
+      end = endOfYear(today)
+      // Group by month
+      dataMap = {}
+      for (let i = 0; i < 12; i++) {
+        const month = format(new Date(0, i), "MMM")
+        dataMap[month] = 0
+      }
+
+      filteredSales.forEach((sale) => {
+        const saleDate = parseISO(sale.timestamp)
+        if (saleDate >= start && saleDate <= end) {
+          const month = format(saleDate, "MMM")
+          dataMap[month] += sale.total
+        }
+      })
+
+      return Object.keys(dataMap).map((key) => ({
+        period: key,
+        totalSales: dataMap[key],
+      }))
+    }
+
+    return []
+  }, [filteredSales, salesComparisonFilter])
+
+  // Time Report Data
+  const timeReportData = useMemo<TimeReportData[]>(() => {
     let relevantSales = [...filteredSales]
 
     if (timeReportFilter === "day" && selectedTimePeriod) {
@@ -328,86 +389,11 @@ function MostSell() {
       }
     })
 
-    setTimeReportData(reportData)
+    return reportData
   }, [filteredSales, timeReportFilter, selectedTimePeriod])
 
-  useEffect(() => {
-    processSalesComparisonData(sales)
-  }, [processSalesComparisonData, sales])
-
-  useEffect(() => {
-    processTimeReportData()
-  }, [processTimeReportData])
-
-  useEffect(() => {
-    let tempSales = [...sales]
-
-    // Apply Search Filter
-    if (searchTerm.trim() !== "") {
-      const lowercasedTerm = searchTerm.toLowerCase()
-      tempSales = tempSales.filter(
-        (sale) =>
-          sale.customerName.toLowerCase().includes(lowercasedTerm) ||
-          sale.customerPhone.includes(lowercasedTerm) ||
-          sale.products.some(
-            (product) =>
-              product.name.toLowerCase().includes(lowercasedTerm) || product.price.toString().includes(lowercasedTerm),
-          ),
-      )
-    }
-
-    // Apply Date Filters
-    if (filter === "today") {
-      tempSales = tempSales.filter((sale) => isToday(parseISO(sale.timestamp)))
-    } else if (filter === "yesterday") {
-      tempSales = tempSales.filter((sale) => isYesterday(parseISO(sale.timestamp)))
-    } else if (filter === "customDate") {
-      const { start, end } = customDateRange
-      if (start && end) {
-        const startDate = new Date(start)
-        const endDate = new Date(end)
-        tempSales = tempSales.filter((sale) => {
-          const saleDate = new Date(sale.timestamp)
-          return saleDate >= startDate && saleDate <= endDate
-        })
-      }
-    } else if (filter === "customMonth") {
-      const { month, year } = customMonth
-      if (month && year) {
-        tempSales = tempSales.filter((sale) => {
-          const saleDate = new Date(sale.timestamp)
-          return saleDate.getMonth() + 1 === Number.parseInt(month) && saleDate.getFullYear() === Number.parseInt(year)
-        })
-      }
-    } else if (filter === "customYear") {
-      const { year } = customYear
-      if (year) {
-        tempSales = tempSales.filter((sale) => {
-          const saleDate = new Date(sale.timestamp)
-          return saleDate.getFullYear() === Number.parseInt(year)
-        })
-      }
-    }
-
-    setFilteredSales(tempSales)
-    calculateSummary(tempSales)
-    aggregateProductSales(tempSales)
-    processSalesComparisonData(tempSales)
-    processTimeReportData()
-  }, [
-    searchTerm,
-    filter,
-    customDateRange,
-    customMonth,
-    customYear,
-    sales,
-    calculateSummary,
-    aggregateProductSales,
-    processSalesComparisonData,
-    processTimeReportData,
-  ])
-
-  const handleFilterChange = (selectedFilter: FilterType) => {
+  // Handle Filter Change
+  const handleFilterChange = useCallback((selectedFilter: FilterType) => {
     setFilter(selectedFilter)
     // Reset custom filters when changing the main filter
     if (selectedFilter !== "customDate") {
@@ -419,7 +405,12 @@ function MostSell() {
     if (selectedFilter !== "customYear") {
       setCustomYear({ year: "" })
     }
-  }
+  }, [])
+
+  // Handle Reset of Selected Time Period when Filter Changes
+  useEffect(() => {
+    setSelectedTimePeriod("")
+  }, [timeReportFilter])
 
   if (loading) {
     return (
@@ -431,10 +422,23 @@ function MostSell() {
             fill="none"
             viewBox="0 0 24 24"
           >
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+            <circle
+              className="opacity-25"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              strokeWidth="4"
+            ></circle>
+            <path
+              className="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8v8H4z"
+            ></path>
           </svg>
-          <p className="text-lg text-gray-700 dark:text-gray-300">Loading most sold products...</p>
+          <p className="text-lg text-gray-700 dark:text-gray-300">
+            Loading most sold products...
+          </p>
         </div>
       </div>
     )
@@ -455,13 +459,19 @@ function MostSell() {
       <ToastContainer />
 
       <div className="max-w-7xl mx-auto">
-        <h2 className="text-4xl font-extrabold text-gray-900 dark:text-white mb-8 text-center">Most Sold Products</h2>
+        <h2 className="text-4xl font-extrabold text-gray-900 dark:text-white mb-8 text-center">
+          Most Sold Products
+        </h2>
 
         {/* Summary Card */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 flex items-center justify-between mb-10">
           <div>
-            <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Products Sold</p>
-            <p className="mt-1 text-3xl font-semibold text-gray-900 dark:text-white">{summary.totalProductsSold}</p>
+            <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
+              Total Products Sold
+            </p>
+            <p className="mt-1 text-3xl font-semibold text-gray-900 dark:text-white">
+              {summary.totalProductsSold}
+            </p>
           </div>
           <FaBox className="text-brand-500 text-6xl" />
         </div>
@@ -470,68 +480,32 @@ function MostSell() {
         <div className="mb-10">
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between space-y-4 md:space-y-0">
             {/* Filter Buttons */}
-            <div className="flex flex-wrap space-x-2">
-              <button
-                onClick={() => handleFilterChange("all")}
-                className={`flex items-center px-4 py-2 border rounded-md text-sm font-medium transition ${
-                  filter === "all"
-                    ? "bg-brand-600 text-white border-brand-600"
-                    : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"
-                }`}
-              >
-                <FaFilter className="mr-2" />
-                All Time
-              </button>
-              <button
-                onClick={() => handleFilterChange("today")}
-                className={`px-4 py-2 border rounded-md text-sm font-medium transition ${
-                  filter === "today"
-                    ? "bg-brand-600 text-white border-brand-600"
-                    : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"
-                }`}
-              >
-                Today
-              </button>
-              <button
-                onClick={() => handleFilterChange("yesterday")}
-                className={`px-4 py-2 border rounded-md text-sm font-medium transition ${
-                  filter === "yesterday"
-                    ? "bg-brand-600 text-white border-brand-600"
-                    : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"
-                }`}
-              >
-                Yesterday
-              </button>
-              <button
-                onClick={() => handleFilterChange("customDate")}
-                className={`px-4 py-2 border rounded-md text-sm font-medium transition ${
-                  filter === "customDate"
-                    ? "bg-brand-600 text-white border-brand-600"
-                    : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"
-                }`}
-              >
-                Custom Date
-              </button>
-              <button
-                onClick={() => handleFilterChange("customMonth")}
-                className={`px-4 py-2 border rounded-md text-sm font-medium transition ${
-                  filter === "customMonth"
-                    ? "bg-brand-600 text-white border-brand-600"
-                    : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"
-                }`}
-              >
-                Custom Month
-              </button>
-              <button
-                onClick={() => handleFilterChange("customYear")}
-                className={`px-4 py-2 border rounded-md text-sm font-medium transition ${
-                  filter === "customYear"
-                    ? "bg-brand-600 text-white border-brand-600"
-                    : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"
-                }`}
-              >
-                Custom Year
-              </button>
+            <div className="flex flex-wrap space-x-2 mt-4 md:mt-0">
+              {["all", "today", "yesterday", "customDate", "customMonth", "customYear"].map(
+                (f) => (
+                  <button
+                    key={f}
+                    onClick={() => handleFilterChange(f as FilterType)}
+                    className={`flex items-center px-4 py-2 border rounded-md text-sm font-medium transition ${
+                      filter === f
+                        ? "bg-brand-600 text-white border-brand-600"
+                        : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"
+                    }`}
+                  >
+                    {f === "all" && (
+                      <>
+                        <FaFilter className="mr-2" />
+                        All Time
+                      </>
+                    )}
+                    {f === "today" && "Today"}
+                    {f === "yesterday" && "Yesterday"}
+                    {f === "customDate" && "Custom Date"}
+                    {f === "customMonth" && "Custom Month"}
+                    {f === "customYear" && "Custom Year"}
+                  </button>
+                ),
+              )}
             </div>
 
             {/* Search Bar */}
@@ -558,7 +532,9 @@ function MostSell() {
                   type="date"
                   id="startDate"
                   value={customDateRange.start}
-                  onChange={(e) => setCustomDateRange((prev) => ({ ...prev, start: e.target.value }))}
+                  onChange={(e) =>
+                    setCustomDateRange((prev) => ({ ...prev, start: e.target.value }))
+                  }
                   className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-600"
                 />
               </div>
@@ -570,7 +546,9 @@ function MostSell() {
                   type="date"
                   id="endDate"
                   value={customDateRange.end}
-                  onChange={(e) => setCustomDateRange((prev) => ({ ...prev, end: e.target.value }))}
+                  onChange={(e) =>
+                    setCustomDateRange((prev) => ({ ...prev, end: e.target.value }))
+                  }
                   className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-600"
                 />
               </div>
@@ -587,7 +565,9 @@ function MostSell() {
                 <select
                   id="month"
                   value={customMonth.month}
-                  onChange={(e) => setCustomMonth((prev) => ({ ...prev, month: e.target.value }))}
+                  onChange={(e) =>
+                    setCustomMonth((prev) => ({ ...prev, month: e.target.value }))
+                  }
                   className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-600"
                 >
                   <option value="">Select Month</option>
@@ -607,7 +587,9 @@ function MostSell() {
                   id="year"
                   placeholder="e.g., 2024"
                   value={customMonth.year}
-                  onChange={(e) => setCustomMonth((prev) => ({ ...prev, year: e.target.value }))}
+                  onChange={(e) =>
+                    setCustomMonth((prev) => ({ ...prev, year: e.target.value }))
+                  }
                   className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-600"
                 />
               </div>
@@ -680,78 +662,88 @@ function MostSell() {
 
         {/* Sales Comparison Report */}
         <div className="mb-10 bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-4">
             <h3 className="text-2xl font-semibold text-gray-800 dark:text-gray-100">Sales Comparison Report</h3>
-            <div className="flex space-x-2">
-              <button
-                onClick={() => setSalesComparisonFilter("week")}
-                className={`flex items-center px-3 py-1 border rounded-md text-sm font-medium transition ${
-                  salesComparisonFilter === "week"
-                    ? "bg-brand-600 text-white border-brand-600"
-                    : "bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600"
-                }`}
-              >
-                Week
-              </button>
-              <button
-                onClick={() => setSalesComparisonFilter("month")}
-                className={`flex items-center px-3 py-1 border rounded-md text-sm font-medium transition ${
-                  salesComparisonFilter === "month"
-                    ? "bg-brand-600 text-white border-brand-600"
-                    : "bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600"
-                }`}
-              >
-                Month
-              </button>
-              <button
-                onClick={() => setSalesComparisonFilter("year")}
-                className={`flex items-center px-3 py-1 border rounded-md text-sm font-medium transition ${
-                  salesComparisonFilter === "year"
-                    ? "bg-brand-600 text-white border-brand-600"
-                    : "bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600"
-                }`}
-              >
-                Year
-              </button>
+            <div className="flex flex-wrap space-x-2 mt-4 md:mt-0">
+              {["week", "month", "year"].map((filterType) => (
+                <button
+                  key={filterType}
+                  onClick={() => setSalesComparisonFilter(filterType as "week" | "month" | "year")}
+                  className={`flex items-center px-3 py-1 border rounded-md text-sm font-medium transition ${
+                    salesComparisonFilter === filterType
+                      ? "bg-brand-600 text-white border-brand-600"
+                      : "bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600"
+                  }`}
+                >
+                  {filterType.charAt(0).toUpperCase() + filterType.slice(1)}
+                </button>
+              ))}
             </div>
           </div>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={salesComparisonData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="period" stroke="#8884d8" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              <Bar dataKey="totalSales" fill="#8884d8" name="Total Sales" />
-            </BarChart>
-          </ResponsiveContainer>
+
+          {/* Responsive Chart Container */}
+          <div className="w-full overflow-x-auto">
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart
+                data={salesComparisonData}
+                margin={{ top: 20, right: 30, left: 20, bottom: 50 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis
+                  dataKey="period"
+                  stroke="#8884d8"
+                  tick={{ fontSize: 12 }}
+                  interval={0}
+                  angle={-45}
+                  textAnchor="end"
+                />
+                <YAxis
+                  stroke="#8884d8"
+                  tick={{ fontSize: 12 }}
+                  width={40}
+                />
+                <Tooltip />
+                <Legend verticalAlign="top" height={36} />
+                <Bar dataKey="totalSales" fill="#8884d8" name="Total Sales">
+                  {salesComparisonData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={getColor(entry.totalSales)} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Additional Styling for Mobile */}
+          <style jsx>{`
+            /* Adjust font sizes and label rotations for smaller screens */
+            @media (max-width: 640px) {
+              .recharts-text.recharts-cartesian-axis-tick-value {
+                font-size: 10px !important;
+                transform: rotate(-45deg);
+                text-anchor: end;
+              }
+            }
+          `}</style>
         </div>
 
         {/* Time Report */}
         <div className="mb-10 bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-4">
             <h3 className="text-2xl font-semibold text-gray-800 dark:text-gray-100">Time Report</h3>
-            <div className="flex space-x-2">
-              <button
-                onClick={() => setTimeReportFilter("day")}
-                className={`flex items-center px-3 py-1 border rounded-md text-sm font-medium transition ${
-                  timeReportFilter === "day"
-                    ? "bg-brand-600 text-white border-brand-600"
-                    : "bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600"
-                }`}
-              >
-                Day
-              </button>
-              <button
-                onClick={() => setTimeReportFilter("month")}
-                className={`flex items-center px-3 py-1 border rounded-md text-sm font-medium transition ${
-                  timeReportFilter === "month"
-                    ? "bg-brand-600 text-white border-brand-600"
-                    : "bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600"
-                }`}
-              >
-                Month
-              </button>
+            <div className="flex flex-wrap space-x-2 mt-4 md:mt-0">
+              {["day", "month"].map((filterType) => (
+                <button
+                  key={filterType}
+                  onClick={() => setTimeReportFilter(filterType as "day" | "month")}
+                  className={`flex items-center px-3 py-1 border rounded-md text-sm font-medium transition ${
+                    timeReportFilter === filterType
+                      ? "bg-brand-600 text-white border-brand-600"
+                      : "bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600"
+                  }`}
+                >
+                  {filterType.charAt(0).toUpperCase() + filterType.slice(1)}
+                </button>
+              ))}
             </div>
           </div>
 
@@ -791,19 +783,19 @@ function MostSell() {
           <div className="mb-4 flex flex-wrap gap-4">
             <div className="flex items-center">
               <div className="w-4 h-4 rounded bg-red-500 mr-2"></div>
-              <span className="text-sm text-gray-600 dark:text-gray-300">High  ₹1000</span>
+              <span className="text-sm text-gray-600 dark:text-gray-300">High ₹1000+</span>
             </div>
             <div className="flex items-center">
               <div className="w-4 h-4 rounded bg-orange-500 mr-2"></div>
-              <span className="text-sm text-gray-600 dark:text-gray-300">Moderate ₹500</span>
+              <span className="text-sm text-gray-600 dark:text-gray-300">Moderate ₹500+</span>
             </div>
             <div className="flex items-center">
               <div className="w-4 h-4 rounded bg-green-500 mr-2"></div>
-              <span className="text-sm text-gray-600 dark:text-gray-300">Medium ₹100</span>
+              <span className="text-sm text-gray-600 dark:text-gray-300">Medium ₹100+</span>
             </div>
             <div className="flex items-center">
               <div className="w-4 h-4 rounded bg-blue-500 mr-2"></div>
-              <span className="text-sm text-gray-600 dark:text-gray-300">Low ₹100</span>
+              <span className="text-sm text-gray-600 dark:text-gray-300">Low ₹0-₹99</span>
             </div>
           </div>
 
@@ -841,11 +833,10 @@ function MostSell() {
           )}
         </div>
 
-        {/* ... (rest of the code remains the same) */}
+        {/* Additional Sections (if any) */}
       </div>
     </div>
   )
 }
 
 export default MostSell
-
