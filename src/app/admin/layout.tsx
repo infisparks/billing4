@@ -2,7 +2,7 @@
 
 // Layout components
 import { usePathname } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import routes from 'routes';
 import {
   getActiveNavbar,
@@ -18,7 +18,17 @@ export default function Admin({ children }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
 
-  if (isWindowAvailable()) document.documentElement.dir = 'ltr';
+  // Set text direction if window is available
+  useEffect(() => {
+    if (isWindowAvailable()) {
+      document.documentElement.dir = 'ltr';
+    }
+  }, []);
+
+  // Close sidebar when pathname changes
+  useEffect(() => {
+    setOpen(false);
+  }, [pathname]);
 
   return (
     <div className="flex h-full w-full bg-background-100 dark:bg-background-900">
