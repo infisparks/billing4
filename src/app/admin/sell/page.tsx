@@ -17,12 +17,10 @@ import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage
 
 import {
   FaBox,
-
   FaSortNumericDown,
   FaChartLine,
   FaPlus,
   FaTrash,
-  
 } from 'react-icons/fa';
 import { FaIndianRupeeSign } from "react-icons/fa6";
 import { v4 as uuidv4 } from 'uuid';
@@ -32,31 +30,47 @@ import jsPDF from 'jspdf';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
-// 1) Convert an image (like letterhead) to Base64
-async function getImageBase64(url: string): Promise<string> {
+// Helper function to load an image from a Blob
+function loadImage(blob: Blob): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error('Failed to load image'));
+    const url = URL.createObjectURL(blob);
+    img.src = url;
+  });
+}
+
+// 1) Compress and convert an image to Base64 JPEG
+async function getCompressedImageBase64(
+  url: string,
+  maxWidth: number = 800,
+  quality: number = 0.5
+): Promise<string> {
   try {
     const response = await fetch(url);
     if (!response.ok) {
       throw new Error(`Failed to fetch image at ${url}`);
     }
     const blob = await response.blob();
-    return new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        if (reader.result) {
-          resolve(reader.result.toString());
-        } else {
-          reject('Failed to convert image to Base64.');
-        }
-      };
-      reader.onerror = () => {
-        reject('Failed to convert image to Base64.');
-      };
-      reader.readAsDataURL(blob);
-    });
+    const img = await loadImage(blob);
+
+    // Calculate scaling to maintain aspect ratio
+    const scale = maxWidth / img.width;
+    const canvas = document.createElement('canvas');
+    canvas.width = maxWidth;
+    canvas.height = img.height * scale;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Canvas context not available');
+
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+    // Convert canvas to JPEG with specified quality
+    return canvas.toDataURL('image/jpeg', quality);
   } catch (error) {
-    console.error('Error fetching image:', error);
-    // If image fetching fails, return empty string to proceed without it
+    console.error('Error fetching or compressing image:', error);
+    // If image processing fails, return empty string to proceed without it
     return '';
   }
 }
@@ -126,9 +140,10 @@ async function createAndUploadPDF(saleData: any) {
   const doc = new jsPDF('p', 'mm', 'a4');
   try {
     // Optional: Add letterhead or background image
-    const imageBase64 = await getImageBase64('/letterhead.png');
+    const imageBase64 = await getCompressedImageBase64('/letterhead.png');
     if (imageBase64) {
-      doc.addImage(imageBase64, 'PNG', 0, 0, 210, 297);
+      // Add image as JPEG with compression
+      doc.addImage(imageBase64, 'JPEG', 0, 0, 210, 297);
     }
 
     doc.setFontSize(16);
@@ -677,21 +692,19 @@ function AddProduct() {
 
                   {/* Quantity Input */}
                   <div className="relative w-full">
-                    {/* <FaSortNumericDown className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" /> */}
-                    <div className='flex text-center items-center ' >
-
-                    <label className='text-white pr-4'>Qty</label>
-                    <input
-                      type="number"
-                      value={product.quantity}
-                      onChange={(e) => handleQuantityChange(e, index)}
-                      className="w-full px-4 py-2 text-lg border border-gray-300 bg-[#2D396B] text-white rounded-lg pl-10"
-                      placeholder="Qty"
-                      min="1"
-                      step="1"
-                      required
+                    <div className='flex text-center items-center '>
+                      <label className='text-white pr-4'>Qty</label>
+                      <input
+                        type="number"
+                        value={product.quantity}
+                        onChange={(e) => handleQuantityChange(e, index)}
+                        className="w-full px-4 py-2 text-lg border border-gray-300 bg-[#2D396B] text-white rounded-lg pl-10"
+                        placeholder="Qty"
+                        min="1"
+                        step="1"
+                        required
                       />
-                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -746,7 +759,6 @@ function AddProduct() {
               type="text"
               value={discount}
               onChange={handleDiscountChange}
-             
             />
           </div>
 
