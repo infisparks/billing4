@@ -21,6 +21,9 @@ import {
   FaChartLine,
   FaPlus,
   FaTrash,
+  FaCalendarAlt,
+  FaMicrophone,
+  FaMicrophoneSlash,
 } from 'react-icons/fa';
 import { FaIndianRupeeSign } from "react-icons/fa6";
 import { v4 as uuidv4 } from 'uuid';
@@ -29,6 +32,9 @@ import { v4 as uuidv4 } from 'uuid';
 import jsPDF from 'jspdf';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+
+// --- Import for Voice Recognition ---
+import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognition';
 
 // Helper function to load an image from a Blob
 function loadImage(blob: Blob): Promise<HTMLImageElement> {
@@ -248,6 +254,8 @@ async function createAndUploadPDF(saleData: any) {
 }
 
 function AddProduct() {
+  // --- Existing States ---
+
   // Customer Details
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
@@ -274,6 +282,99 @@ function AddProduct() {
 
   // WhatsApp token from Firebase
   const [waToken, setWaToken] = useState<string>('');
+
+  // --- Appointment Booking States ---
+
+  // Appointment Details
+  const [appointmentName, setAppointmentName] = useState('');
+  const [appointmentPhone, setAppointmentPhone] = useState('');
+  const [appointmentDate, setAppointmentDate] = useState('');
+  const [appointmentTime, setAppointmentTime] = useState('');
+
+  // Voice Recognition States
+  const [isListening, setIsListening] = useState(false);
+
+  // --- Voice Recognition Setup ---
+  const {
+    transcript,
+    listening,
+    resetTranscript,
+    browserSupportsSpeechRecognition,
+  } = useSpeechRecognition();
+
+  useEffect(() => {
+    if (!browserSupportsSpeechRecognition) {
+      toast.error('Browser does not support speech recognition.');
+    }
+  }, [browserSupportsSpeechRecognition]);
+
+  // Effect to parse transcript for appointment booking
+  useEffect(() => {
+    if (transcript) {
+      parseVoiceCommands(transcript);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [transcript]);
+
+  // Function to parse voice commands and fill appointment details
+  const parseVoiceCommands = (text: string) => {
+    const lowerText = text.toLowerCase();
+
+    // Example commands:
+    // "Book appointment for John Doe, phone number 1234567890, on September 30th at 3 PM"
+    const nameMatch = lowerText.match(/book appointment for ([a-z\s]+)/);
+    const phoneMatch = lowerText.match(/phone number (\d{10})/);
+    const dateMatch = lowerText.match(/on (\w+ \d{1,2}(?:st|nd|rd|th)?)?/);
+    const timeMatch = lowerText.match(/at (\d{1,2} ?(?:am|pm))/);
+
+    if (nameMatch && nameMatch[1]) {
+      setAppointmentName(capitalizeWords(nameMatch[1].trim()));
+      toast.info(`Customer Name set to: ${capitalizeWords(nameMatch[1].trim())}`);
+    }
+
+    if (phoneMatch && phoneMatch[1]) {
+      setAppointmentPhone(phoneMatch[1]);
+      toast.info(`Customer Phone set to: ${phoneMatch[1]}`);
+    }
+
+    if (dateMatch && dateMatch[1]) {
+      const parsedDate = parseDate(dateMatch[1]);
+      if (parsedDate) {
+        setAppointmentDate(parsedDate);
+        toast.info(`Appointment Date set to: ${parsedDate}`);
+      }
+    }
+
+    if (timeMatch && timeMatch[1]) {
+      const parsedTime = parseTime(timeMatch[1]);
+      if (parsedTime) {
+        setAppointmentTime(parsedTime);
+        toast.info(`Appointment Time set to: ${parsedTime}`);
+      }
+    }
+  };
+
+  // Helper functions to capitalize words, parse date and time
+  const capitalizeWords = (str: string) =>
+    str.replace(/\b\w/g, (char) => char.toUpperCase());
+
+  const parseDate = (dateStr: string): string | null => {
+    const date = new Date(Date.parse(dateStr));
+    if (!isNaN(date.getTime())) {
+      return date.toISOString().split('T')[0]; // YYYY-MM-DD
+    }
+    return null;
+  };
+
+  const parseTime = (timeStr: string): string | null => {
+    const date = new Date(`1970-01-01T${timeStr}`);
+    if (!isNaN(date.getTime())) {
+      return timeStr.toUpperCase(); // e.g., 3 PM
+    }
+    return null;
+  };
+
+  // --- Existing useEffects ---
 
   // Fetch the WhatsApp token from the DB
   useEffect(() => {
@@ -323,6 +424,8 @@ function AddProduct() {
       return () => unsubscribeSales();
     }
   }, [customerPhone]);
+
+  // --- Handler Functions ---
 
   // Handle Customer Phone Input
   const handleCustomerPhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -431,7 +534,7 @@ function AddProduct() {
     setPaymentMethod(method);
   };
 
-  // Handle Form Submission
+  // Handle Form Submission for Sales
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -581,228 +684,416 @@ function AddProduct() {
     }
   };
 
+  // --- Appointment Booking Handler ---
+
+  const handleAppointmentSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    // Basic Validation
+    if (!appointmentName.trim()) {
+      toast.error('Please enter the customer name for the appointment.');
+      return;
+    }
+    if (appointmentPhone.length !== 10) {
+      toast.error('Please enter a valid 10-digit phone number for the appointment.');
+      return;
+    }
+    if (!appointmentDate) {
+      toast.error('Please select a date for the appointment.');
+      return;
+    }
+    if (!appointmentTime) {
+      toast.error('Please select a time for the appointment.');
+      return;
+    }
+
+    const appointmentData = {
+      customerName: appointmentName.trim(),
+      customerPhone: appointmentPhone.trim(),
+      appointmentDate,
+      appointmentTime,
+      timestamp: new Date().toISOString(),
+    };
+
+    try {
+      setIsSubmitting(true);
+
+      // Push Appointment to Firebase Realtime Database
+      const appointmentsRef = dbRef(database, 'appointments');
+      await push(appointmentsRef, appointmentData);
+
+      toast.success('Appointment booked successfully!');
+
+      // Reset Appointment Form
+      setAppointmentName('');
+      setAppointmentPhone('');
+      setAppointmentDate('');
+      setAppointmentTime('');
+      resetTranscript();
+    } catch (error) {
+      console.error('Error booking appointment:', error);
+      toast.error('Failed to book appointment. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // --- Voice Recognition Handlers ---
+
+  const startListening = () => {
+    if (browserSupportsSpeechRecognition) {
+      SpeechRecognition.startListening({ continuous: true });
+      setIsListening(true);
+      toast.info('Voice recognition started. Please speak your commands.');
+    }
+  };
+
+  const stopListening = () => {
+    if (browserSupportsSpeechRecognition) {
+      SpeechRecognition.stopListening();
+      setIsListening(false);
+      toast.info('Voice recognition stopped.');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center px-4 sm:px-6 lg:px-8">
       <ToastContainer />
 
-      <div className="max-w-2xl w-full bg-white dark:bg-gray-800 p-8 rounded-lg shadow-md">
+      <div className="max-w-4xl w-full bg-white dark:bg-gray-800 p-8 rounded-lg shadow-md space-y-8">
         <h2 className="mb-6 text-3xl font-extrabold text-gray-900 dark:text-white text-center">
-          Record New Sale
+          Admin Dashboard
         </h2>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Customer Name */}
-          <div className="relative">
-            <FaBox className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-            <InputField
-              variant="auth"
-              extra="mb-3 pl-10"
-              label="Customer Name*"
-              placeholder="Enter customer name"
-              id="customerName"
-              type="text"
-              value={customerName}
-              onChange={(e) => setCustomerName(e.target.value)}
-              required
-            />
-          </div>
-
-          {/* Customer Phone */}
-          <div className="relative">
-            <FaSortNumericDown className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-            <InputField
-              variant="auth"
-              extra="mb-3 pl-10"
-              label="Customer Phone*"
-              placeholder="Enter 10-digit phone number"
-              id="customerPhone"
-              type="text"
-              value={customerPhone}
-              onChange={handleCustomerPhoneChange}
-              required
-            />
-          </div>
-
-          {/* Payment Method Selection */}
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Payment Method*
-            </label>
-            <div className="flex items-center space-x-4">
-              <label className="inline-flex items-center">
-                <input
-                  type="radio"
-                  name="paymentMethod"
-                  value="Online"
-                  checked={paymentMethod === 'Online'}
-                  onChange={() => handlePaymentMethodChange('Online')}
-                  className="form-radio h-5 w-5 text-brand-600"
-                  required
-                />
-                <span className="ml-2 text-gray-700 dark:text-gray-300">Online</span>
-              </label>
-              <label className="inline-flex items-center">
-                <input
-                  type="radio"
-                  name="paymentMethod"
-                  value="Cash"
-                  checked={paymentMethod === 'Cash'}
-                  onChange={() => handlePaymentMethodChange('Cash')}
-                  className="form-radio h-5 w-5 text-brand-600"
-                />
-                <span className="ml-2 text-gray-700 dark:text-gray-300">Cash</span>
-              </label>
+        {/* Sales Form */}
+        <div>
+          <h3 className="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-4">Record New Sale</h3>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Customer Name */}
+            <div className="relative">
+              <FaBox className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+              <InputField
+                variant="auth"
+                extra="mb-3 pl-10"
+                label="Customer Name*"
+                placeholder="Enter customer name"
+                id="customerName"
+                type="text"
+                value={customerName}
+                onChange={(e) => setCustomerName(e.target.value)}
+                required
+              />
             </div>
-          </div>
 
-          {/* Products */}
-          <div className="space-y-4">
-            {products.map((product, index) => (
-              <div key={product.id} className="relative border p-4 rounded-md">
-                {/* Product Name */}
-                <div className="">
-                  <div className="relative flex-1 mr-4">
-                    <FaBox className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                    <InputField
-                      variant="auth"
-                      extra="mb-3 pl-10"
-                      label={`Product ${index + 1} Name*`}
-                      placeholder="Start typing product name"
-                      id={`productName-${product.id}`}
-                      type="text"
-                      value={product.name}
-                      onChange={(e) => handleProductNameChange(e, index)}
-                      required
-                    />
-                    {/* Suggestions Dropdown */}
-                    {suggestions[product.id] && suggestions[product.id].length > 0 && (
-                      <ul className="absolute z-10 bg-white border border-gray-300 w-full mt-1 max-h-40 overflow-y-auto rounded-md shadow-lg">
-                        {suggestions[product.id].map((sugg) => (
-                          <li
-                            key={sugg.id}
-                            className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
-                            onClick={() => handleProductSelect(sugg, index)}
-                          >
-                            {sugg.name}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
+            {/* Customer Phone */}
+            <div className="relative">
+              <FaSortNumericDown className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+              <InputField
+                variant="auth"
+                extra="mb-3 pl-10"
+                label="Customer Phone*"
+                placeholder="Enter 10-digit phone number"
+                id="customerPhone"
+                type="text"
+                value={customerPhone}
+                onChange={handleCustomerPhoneChange}
+                required
+              />
+            </div>
 
-                  {/* Quantity Input */}
-                  <div className="relative w-full">
-                    <div className='flex text-center items-center '>
-                      <label className='text-white pr-4'>Qty</label>
-                      <input
-                        type="number"
-                        value={product.quantity}
-                        onChange={(e) => handleQuantityChange(e, index)}
-                        className="w-full px-4 py-2 text-lg border border-gray-300 bg-[#2D396B] text-white rounded-lg pl-10"
-                        placeholder="Qty"
-                        min="1"
-                        step="1"
+            {/* Payment Method Selection */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Payment Method*
+              </label>
+              <div className="flex items-center space-x-4">
+                <label className="inline-flex items-center">
+                  <input
+                    type="radio"
+                    name="paymentMethod"
+                    value="Online"
+                    checked={paymentMethod === 'Online'}
+                    onChange={() => handlePaymentMethodChange('Online')}
+                    className="form-radio h-5 w-5 text-brand-600"
+                    required
+                  />
+                  <span className="ml-2 text-gray-700 dark:text-gray-300">Online</span>
+                </label>
+                <label className="inline-flex items-center">
+                  <input
+                    type="radio"
+                    name="paymentMethod"
+                    value="Cash"
+                    checked={paymentMethod === 'Cash'}
+                    onChange={() => handlePaymentMethodChange('Cash')}
+                    className="form-radio h-5 w-5 text-brand-600"
+                  />
+                  <span className="ml-2 text-gray-700 dark:text-gray-300">Cash</span>
+                </label>
+              </div>
+            </div>
+
+            {/* Products */}
+            <div className="space-y-4">
+              {products.map((product, index) => (
+                <div key={product.id} className="relative border p-4 rounded-md">
+                  {/* Product Name */}
+                  <div className="">
+                    <div className="relative flex-1 mr-4">
+                      <FaBox className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                      <InputField
+                        variant="auth"
+                        extra="mb-3 pl-10"
+                        label={`Product ${index + 1} Name*`}
+                        placeholder="Start typing product name"
+                        id={`productName-${product.id}`}
+                        type="text"
+                        value={product.name}
+                        onChange={(e) => handleProductNameChange(e, index)}
                         required
                       />
+                      {/* Suggestions Dropdown */}
+                      {suggestions[product.id] && suggestions[product.id].length > 0 && (
+                        <ul className="absolute z-10 bg-white border border-gray-300 w-full mt-1 max-h-40 overflow-y-auto rounded-md shadow-lg">
+                          {suggestions[product.id].map((sugg) => (
+                            <li
+                              key={sugg.id}
+                              className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                              onClick={() => handleProductSelect(sugg, index)}
+                            >
+                              {sugg.name}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+
+                    {/* Quantity Input */}
+                    <div className="relative w-full">
+                      <div className='flex text-center items-center '>
+                        <label className='text-white pr-4'>Qty</label>
+                        <input
+                          type="number"
+                          value={product.quantity}
+                          onChange={(e) => handleQuantityChange(e, index)}
+                          className="w-full px-4 py-2 text-lg border border-gray-300 bg-[#2D396B] text-white rounded-lg pl-10"
+                          placeholder="Qty"
+                          min="1"
+                          step="1"
+                          required
+                        />
+                      </div>
                     </div>
                   </div>
+
+                  {/* Product Price */}
+                  <div className="relative mt-2">
+                    <FaIndianRupeeSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 " />
+                    <input
+                      type="number"
+                      value={product.price === 0 ? '' : product.price}
+                      onChange={(e) => handlePriceChange(e, index)}
+                      className="w-full px-4 py-2 text-lg border border-gray-300 rounded-lg pl-10"
+                      placeholder="Enter product price"
+                      required
+                      min="0.01"
+                      step="0.01"
+                    />
+                  </div>
+
+                  {/* Remove Product Button */}
+                  {products.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveProduct(product.id)}
+                      className="absolute top-2 right-2 text-red-500 hover:text-red-700"
+                      aria-label="Remove product"
+                    >
+                      <FaTrash />
+                    </button>
+                  )}
                 </div>
+              ))}
 
-                {/* Product Price */}
-                <div className="relative mt-2">
-                  <FaIndianRupeeSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 " />
-                  <input
-                    type="number"
-                    value={product.price === 0 ? '' : product.price}
-                    onChange={(e) => handlePriceChange(e, index)}
-                    className="w-full px-4 py-2 text-lg border border-gray-300 rounded-lg pl-10"
-                    placeholder="Enter product price"
-                    required
-                    min="0.01"
-                    step="0.01"
-                  />
-                </div>
-
-                {/* Remove Product Button */}
-                {products.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveProduct(product.id)}
-                    className="absolute top-2 right-2 text-red-500 hover:text-red-700"
-                    aria-label="Remove product"
-                  >
-                    <FaTrash />
-                  </button>
-                )}
-              </div>
-            ))}
-
-            {/* Add More Products Button */}
-            <button
-              type="button"
-              onClick={handleAddProduct}
-              className="flex items-center text-white hover:text-brand-600"
-            >
-              <FaPlus className="mr-2 text-white" /> Add More Products
-            </button>
-          </div>
-
-          {/* Discount */}
-          <div className="relative items-center justify-center">
-            <FaChartLine className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-            <InputField
-              variant="auth"
-              extra="mb-3 pl-10"
-              label="Discount (₹)"
-              placeholder="Enter discount amount"
-              id="discount"
-              type="text"
-              value={discount}
-              onChange={handleDiscountChange}
-            />
-          </div>
-
-          {/* Sell Button */}
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className={`w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white 
-              ${
-                isSubmitting
-                  ? 'bg-gray-400 cursor-not-allowed'
-                  : 'bg-brand-500 hover:bg-brand-600 active:bg-brand-700'
-              } 
-              focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 transition`}
-          >
-            {isSubmitting && (
-              <svg
-                className="animate-spin h-5 w-5 mr-3 text-white"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
+              {/* Add More Products Button */}
+              <button
+                type="button"
+                onClick={handleAddProduct}
+                className="flex items-center text-white hover:text-brand-600"
               >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                ></circle>
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8v8H4z"
-                ></path>
-              </svg>
-            )}
-            {isSubmitting ? 'Processing...' : 'Sell'}
-          </button>
-        </form>
+                <FaPlus className="mr-2 text-white" /> Add More Products
+              </button>
+            </div>
 
+            {/* Discount */}
+            <div className="relative items-center justify-center">
+              <FaChartLine className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+              <InputField
+                variant="auth"
+                extra="mb-3 pl-10"
+                label="Discount (₹)"
+                placeholder="Enter discount amount"
+                id="discount"
+                type="text"
+                value={discount}
+                onChange={handleDiscountChange}
+              />
+            </div>
+
+            {/* Sell Button */}
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className={`w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white 
+                ${
+                  isSubmitting
+                    ? 'bg-gray-400 cursor-not-allowed'
+                    : 'bg-brand-500 hover:bg-brand-600 active:bg-brand-700'
+                } 
+                focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 transition`}
+            >
+              {isSubmitting && (
+                <svg
+                  className="animate-spin h-5 w-5 mr-3 text-white"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  ></circle>
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8v8H4z"
+                  ></path>
+                </svg>
+              )}
+              {isSubmitting ? 'Processing...' : 'Sell'}
+            </button>
+          </form>
+        </div>
+
+        {/* Appointment Booking Form */}
+        <div>
+          <h3 className="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-4">Book Appointment</h3>
+          <form onSubmit={handleAppointmentSubmit} className="space-y-6">
+            {/* Appointment Customer Name */}
+            <div className="relative">
+              <FaBox className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+              <InputField
+                variant="auth"
+                extra="mb-3 pl-10"
+                label="Customer Name*"
+                placeholder="Enter customer name"
+                id="appointmentName"
+                type="text"
+                value={appointmentName}
+                onChange={(e) => setAppointmentName(e.target.value)}
+                required
+              />
+            </div>
+
+            {/* Appointment Customer Phone */}
+            <div className="relative">
+              <FaSortNumericDown className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+              <InputField
+                variant="auth"
+                extra="mb-3 pl-10"
+                label="Customer Phone*"
+                placeholder="Enter 10-digit phone number"
+                id="appointmentPhone"
+                type="text"
+                value={appointmentPhone}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (/^\d{0,10}$/.test(value)) {
+                    setAppointmentPhone(value);
+                  }
+                }}
+                required
+              />
+            </div>
+
+            {/* Appointment Date */}
+            <div className="relative">
+              <FaCalendarAlt className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+              <input
+                type="date"
+                value={appointmentDate}
+                onChange={(e) => setAppointmentDate(e.target.value)}
+                className="w-full px-4 py-2 text-lg border border-gray-300 rounded-lg pl-10"
+                required
+              />
+            </div>
+
+            {/* Appointment Time */}
+            <div className="relative">
+              <FaSortNumericDown className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+              <input
+                type="time"
+                value={appointmentTime}
+                onChange={(e) => setAppointmentTime(e.target.value)}
+                className="w-full px-4 py-2 text-lg border border-gray-300 rounded-lg pl-10"
+                required
+              />
+            </div>
+
+            {/* Voice Commands for Appointment */}
+            <div className="flex items-center space-x-4">
+              <button
+                type="button"
+                onClick={startListening}
+                disabled={isListening}
+                className="flex items-center justify-center px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-md"
+              >
+                <FaMicrophone className="mr-2" /> Start Voice Input
+              </button>
+              <button
+                type="button"
+                onClick={stopListening}
+                disabled={!isListening}
+                className="flex items-center justify-center px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-md"
+              >
+                <FaMicrophoneSlash className="mr-2" /> Stop Voice Input
+              </button>
+            </div>
+
+            {/* Display Transcript */}
+            {listening && (
+              <div className="mt-2 p-2 bg-gray-100 dark:bg-gray-700 rounded-md">
+                <p className="text-gray-800 dark:text-gray-200">
+                  Listening...: {transcript}
+                </p>
+              </div>
+            )}
+
+            {/* Book Appointment Button */}
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className={`w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white 
+                ${
+                  isSubmitting
+                    ? 'bg-gray-400 cursor-not-allowed'
+                    : 'bg-brand-500 hover:bg-brand-600 active:bg-brand-700'
+                } 
+                focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 transition`}
+            >
+              {isSubmitting ? 'Booking...' : 'Book Appointment'}
+            </button>
+          </form>
+        </div>
+
+        {/* Navigation Link */}
         <div className="mt-6 text-center">
           <span className="text-sm text-gray-600 dark:text-gray-400">
-            Want to record another sale?
+            Want to record another sale or book another appointment?
           </span>
           <a
             href="/admin/selllist"
