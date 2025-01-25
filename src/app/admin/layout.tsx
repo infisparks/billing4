@@ -3,6 +3,7 @@
 // Layout components
 import { usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
+import 'regenerator-runtime/runtime'; 
 import routes from 'routes';
 import {
   getActiveNavbar,
