@@ -34,7 +34,8 @@ interface TokenData {
   token: string; // Ensure token is a string
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://wa.medblisss.com'; // Base URL for API endpoints
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_BASE_URL || 'https://wa.medblisss.com'; // Base URL for API endpoints
 
 function WhatsappLogin() {
   const [loading, setLoading] = useState<boolean>(true);
@@ -140,6 +141,27 @@ function WhatsappLogin() {
     }
   };
 
+  // Function to recreate the account
+  const recreateAccount = async () => {
+    if (!token) {
+      toast.error('No token available for account recreation.');
+      return;
+    }
+    try {
+      console.log(`Recreating account for token: ${token}`);
+      const response = await axios.post(`${API_BASE_URL}/sessions`, {
+        number: token,
+      });
+      console.log('Recreate account response:', response.data);
+      toast.success('Account recreated successfully. Please scan the new QR code.');
+      // Refresh the authentication status to update the QR code
+      fetchAuthStatus(token);
+    } catch (err: any) {
+      console.error('Error recreating account:', err);
+      toast.error('Failed to recreate account.');
+    }
+  };
+
   useEffect(() => {
     fetchTokenFromDB();
   }, []);
@@ -187,7 +209,6 @@ function WhatsappLogin() {
             <p className="mt-2 text-gray-600 dark:text-gray-400 text-center">
               You are already authenticated with WhatsApp.
             </p>
-            {/* Logout button removed */}
           </div>
         ) : qrCode ? (
           <div className="flex flex-col items-center">
@@ -223,13 +244,24 @@ function WhatsappLogin() {
             <p className="mt-2 text-gray-600 dark:text-gray-400 text-center">
               Unable to retrieve authentication QR code.
             </p>
-            <button
-              onClick={() => fetchAuthStatus(token)}
-              className="mt-6 flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <FaSpinner className="animate-spin mr-2" />
-              Retry
-            </button>
+            <div className="flex flex-col items-center mt-6 space-y-4">
+              <button
+                onClick={() => fetchAuthStatus(token)}
+                className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <FaSpinner className="animate-spin mr-2" />
+                Retry
+              </button>
+              {/* Show Recreate Account button only if token exists */}
+              {token && (
+                <button
+                  onClick={recreateAccount}
+                  className="flex items-center px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                >
+                  Recreate Account
+                </button>
+              )}
+            </div>
             {error && (
               <div className="mt-4 flex items-center text-red-500">
                 <FaExclamationCircle className="mr-2" />
