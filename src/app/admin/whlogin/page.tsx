@@ -242,6 +242,7 @@ function WhatsappLogin() {
             <h2 className="mt-4 text-2xl font-semibold text-gray-900 dark:text-white">
               Authentication Failed
             </h2>
+            
             <p className="mt-2 text-gray-600 dark:text-gray-400 text-center">
               Unable to retrieve authentication QR code.
             </p>
