@@ -31,11 +31,11 @@ type QrResponse = QrResponseAuthenticated | QrResponseUnauthenticated;
 
 // Define the structure of your token in the database
 interface TokenData {
-  token: string; // Ensure token is a string
+  token: string | number; // Allow token to be number or string from DB
 }
 
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL || 'https://wa.medblisss.com'; // Base URL for API endpoints
+  process.env.NEXT_PUBLIC_API_BASE_URL || 'https://billing.medblisss.com'; // Base URL for API endpoints
 
 function WhatsappLogin() {
   const [loading, setLoading] = useState<boolean>(true);
@@ -54,7 +54,8 @@ function WhatsappLogin() {
         const data: TokenData | null = snapshot.val();
         if (data && data.token) {
           console.log('Fetched token from DB:', data.token);
-          setToken(data.token);
+          // Convert token to a string regardless of whether it's stored as a number or string
+          setToken(String(data.token));
         } else {
           console.error('Token not found in the database.');
           setError('Token not found in the database.');

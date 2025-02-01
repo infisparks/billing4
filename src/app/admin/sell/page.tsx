@@ -107,7 +107,7 @@ async function sendWhatsAppMessage(
   // Construct the recipient phone number (India code assumed: +91)
   const recipientNumber = `91${phoneNumber}`;
 
-  const apiUrl = 'https://wa.medblisss.com/send-image-url';
+  const apiUrl = 'https://billing.medblisss.com/send-image-url';
 
   try {
     const res = await fetch(apiUrl, {
