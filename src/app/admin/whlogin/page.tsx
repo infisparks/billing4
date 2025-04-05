@@ -35,7 +35,7 @@ interface TokenData {
 }
 
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL || 'https://billing.medblisss.com'; // Base URL for API endpoints
+  process.env.NEXT_PUBLIC_API_BASE_URL || 'https://wa.medblisss.com'; // Base URL for API endpoints
 
 function WhatsappLogin() {
   const [loading, setLoading] = useState<boolean>(true);
